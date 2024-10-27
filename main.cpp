@@ -8,12 +8,12 @@ using namespace std;
 
 int main() {
     // locate(15, 15);
-    // cout << "Hi52665!";
-    // character wang(15,25);
-    // wang.print();
-    // Sleep(1000);
-    // wang.move();
-    // Sleep(1000);
+    cout << "Hi52665!";
+    character wang(15,25);
+    wang.print();
+    Sleep(1000);
+    wang.move();
+    Sleep(1000);
 // ==================== 測試coordinate類
     // coordinate obj1(10,20), obj2(30,40), obj3(35,43);
     // coordinate obj4;
@@ -31,14 +31,14 @@ int main() {
     // cout << endl;
     // obj1.show();
 // ==================== 測試object類
-    object ob1(10,20), ob2(0,2);
-    coordinate sh(30,12);
-    ob1.relocate_position(3,2);
-    ob2 = ob2.calculate_shift_position(sh);
-    // ob1.show();
-    // ob2.show();
-    ob1.clean();
-    ob2.clean();
+    // object ob1(10,20), ob2(0,2);
+    // coordinate sh(30,12);
+    // ob1.relocate_position(3,2);
+    // ob2 = ob2.calculate_shift_position(sh);
+    // // ob1.show();
+    // // ob2.show();
+    // ob1.clean();
+    // ob2.clean();
 // ====================
     system("pause");
     return 0;

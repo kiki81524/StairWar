@@ -119,40 +119,73 @@ public:
         SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), position.get_COORD());
     }
 
-    // 清除物件殘留影像
-    void clean() {
-        this->locate();
-        cout << "** **";
+    // 為了要實現跨行print物件，對locate不足的補救
+    void down_locate(short y) {
+        coordinate down_position = coordinate(0,y);
+        down_position += position;
+        SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), down_position.get_COORD());
     }
-    // virtual void print() = 0;
-    // virtual void move() = 0;
+
+    // 清除物件殘留影像
+    // void clean() {
+    //     locate(); // 寫this->locate()或是直接寫locate()都可以
+    //     cout << "** **";
+    // }
+
+    // 純虛擬函數，定義寫在這，但要使用的話子類別要自己寫
+    // 父類別寫成了虛擬函數，沒有給具體定義(實作)的，你忘記在子類別實作編譯器就會提醒你
+    virtual void clean() = 0;
+    virtual void print() = 0;
+    virtual void move() = 0;
 };
 
-// class character: public object {
-// public:
-//     // character(): object() {}
-//     character(short X, short Y): object(X, Y) {cout << "here";} // object(short X, short Y); 
-//     // character(COORD POSITION): object(COORD POSITION) {}
-//     virtual void print() {
-//         locate(get_position());
-//         cout << " O" << endl;
-//         cout << "/||\\" << endl;
-//         cout << " /\\" << endl;
-//     }
-//     virtual void move() {
-//         sleep(200);
-//         clean();
-//         locate(get_position());
-//         sleep(200);
-//         cout << "---";
-//         COORD sp;
-//         sp.X = 3;
-//         sp.Y = 4;
-//         sleep(200);
-//         locate(shift_position(sp));
-//         cout << "---";
-//     }
-// };
+// 從object類別衍生的子類別，用來建立遊戲人物
+class character: public object {
+private:
+    // 因為遊戲人物需要跨行print出來，暫定共3行，所以我建立了別的2個coordinate座標資訊，會與object物件的position綁定移動(但馬上放棄了~~用手動寫一寫比較快)
+    // coordinate body_1, body_2;
+public:
+    // 子類別的建構子，交給對應的object類別建構子負責處理
+    character(): object() {
+        // body_1 = calculate_shift_position(0,1);
+        // body_2 = calculate_shift_position(0,2);
+    }
+    character(short X, short Y): object(X, Y) {
+        // body_1 = calculate_shift_position(0,1);
+        // body_2 = calculate_shift_position(0,2);
+    }
+    character(COORD POSITION): object(POSITION) {
+        // body_1 = calculate_shift_position(0,1);
+        // body_2 = calculate_shift_position(0,2);
+    }
+    character(coordinate POSITION): object(POSITION) {
+        // body_1 = calculate_shift_position(0,1);
+        // body_2 = calculate_shift_position(0,2);
+    }
+
+    // 子類別實作虛擬函數時，可以不加virtual關鍵字
+    void print() {
+        locate();
+        cout << "  O" ;//<< endl;
+        down_locate(1);
+        cout << "/||\\" ;//<< endl;
+        down_locate(2);
+        cout << " /\\" ;//<< endl;
+    }
+    void move() {
+        Sleep(200);
+        clean();
+        locate();
+        Sleep(200);
+        cout << "---";
+        COORD sp;
+        sp.X = 3;
+        sp.Y = 4;
+        Sleep(200);
+        locate();
+        cout << "---";
+    }
+};
 
 
 // void locate(short x, short y) {
