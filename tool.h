@@ -4,6 +4,7 @@
 #include <Windows.h>
 using namespace std;
 
+// 新增一個coordinate class方便處理COORD的位置資訊，使我們能做到讓帶有位置資訊的物件可以使用到一些運算子的功能
 class coordinate {
 private:
     COORD info;
@@ -62,7 +63,7 @@ public:
 };
 
 // 建立一個父類別object，建構2D物件的一般屬性，例如位置資訊、移動資訊
-// 不繼承coordinate，因為我的目的是使用coordinate物件的運算子多載的特性
+// 不繼承coordinate，因為我的目的是使用coordinate物件的運算子多載的特性，繼承無法繼承運算子多載
 class object { 
 private:
     // short x; short y;
@@ -113,35 +114,19 @@ public:
         return position + POSITION;
     }
 
+    // 跟硬體要位置 (是否要擴充?)
+    void locate() {
+        SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), position.get_COORD());
+    }
+
     // 清除物件殘留影像
     void clean() {
-        SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), position.get_COORD());
+        this->locate();
         cout << "** **";
     }
     // virtual void print() = 0;
     // virtual void move() = 0;
 };
-
-// 以防寫垮先備份
-// class object { // 建立一個父類別object，建構2D物件的一般屬性，例如位置資訊、移動資訊
-// private:
-//     // short x; short y;
-//     COORD position;
-// public:
-//     // constructor:
-//     object(){position.X = 0; position.Y = 0;}
-//     object(short X, short Y){position.X = X; position.Y = Y;}  // test
-//     object(COORD POSITION): position(POSITION) {}
-//     // destructor我就不寫了
-//     COORD get_position() {return position;}
-//     COORD relocate_position(short X, short Y) {position.X = X; position.Y = Y;} // test
-//     COORD relocate_position(COORD POSITION) {position = POSITION;}
-//     COORD shift_position(short X, short Y) {position.X += X; position.Y += Y;} // test
-//     COORD shift_position(COORD POSITION) {position += POSITION;}
-//     void clean() {locate(position); cout << " ";}
-//     virtual void print() = 0;
-//     virtual void move() = 0;
-// };
 
 // class character: public object {
 // public:

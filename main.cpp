@@ -31,9 +31,9 @@ int main() {
     // cout << endl;
     // obj1.show();
 // ==================== 測試object類
-    object ob1(10,20), ob2(20,21);
+    object ob1(10,20), ob2(0,2);
     coordinate sh(30,12);
-    ob1.relocate_position(33,22);
+    ob1.relocate_position(3,2);
     ob2 = ob2.calculate_shift_position(sh);
     // ob1.show();
     // ob2.show();
