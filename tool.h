@@ -135,8 +135,7 @@ public:
 
     // 跟硬體要位置 (是否要擴充?)
     void locate() {
-        // if (position.info.X)
-        SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), position.get_COORD());
+        if (!position.is_out()) SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), position.get_COORD());
     }
 
     // 為了方便操作物件的位置，將此函數設成平面任何方向(以x,y調控)皆可移動
@@ -145,7 +144,7 @@ public:
         // coordinate down_position = coordinate(x,y);
         // down_position += position;
         coordinate new_position = calculate_shift_position(x,y);
-        SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), new_position.get_COORD());
+        if (!new_position.is_out()) SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), new_position.get_COORD());
         return new_position;
     }
 
