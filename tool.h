@@ -22,13 +22,13 @@ public:
         info.X = 0; info.Y = 0;
     }
     coordinate(short x, short y) {
-        x %= X_RANGE; y %= Y_RANGE;
         info.X = x; info.Y = y;
     }
-    coordinate(COORD xy) {
-        info.X = xy.X % X_RANGE;
-        info.Y = xy.Y % Y_RANGE;
-    }
+    coordinate(COORD xy): info(xy) {}
+    // coordinate(COORD xy) {
+    //     info.X = xy.X % X_RANGE;
+    //     info.Y = xy.Y % Y_RANGE;
+    // }
 
 
     // 獲得COORD用來與handle溝通(要用COORD)
@@ -36,12 +36,12 @@ public:
 
     // 用來開放外界更改內容的接口(採用函數多載)
     void assign_coordinate(short x, short y) {
-        x %= X_RANGE; y %= Y_RANGE;
         info.X = x; info.Y = y;
     }
     void assign_coordinate(COORD xy) { // 注意參數放的是COORD不是coordinate
-        info.X = xy.X % X_RANGE;
-        info.Y = xy.Y % Y_RANGE;
+        info = xy;
+        // info.X = xy.X % X_RANGE;
+        // info.Y = xy.Y % Y_RANGE;
     }
 
 
@@ -51,21 +51,19 @@ public:
 
     // 運算子多載
     coordinate operator+(coordinate &obj_speed) {
-        return coordinate(  (info.X + obj_speed.info.X) % X_RANGE,
-                            (info.Y + obj_speed.info.Y) % Y_RANGE);
+        return coordinate(info.X + obj_speed.info.X, info.Y + obj_speed.info.Y);
     }
     coordinate operator-(coordinate &obj_speed) {
-        return coordinate(  (info.X - obj_speed.info.X) % X_RANGE,
-                            (info.Y - obj_speed.info.Y) % Y_RANGE);
+        return coordinate(info.X - obj_speed.info.X, info.Y - obj_speed.info.Y);
     }
     coordinate &operator+=(coordinate &obj_speed) {
-        info.X = (info.X + obj_speed.info.X) % X_RANGE;
-        info.Y = (info.Y + obj_speed.info.Y) % Y_RANGE;
+        this->info.X += obj_speed.info.X;
+        this->info.Y += obj_speed.info.Y;
         return *this;
     }
     coordinate &operator-=(coordinate &obj_speed) {
-        info.X = (info.X - obj_speed.info.X) % X_RANGE;
-        info.Y = (info.Y - obj_speed.info.Y) % Y_RANGE;
+        this->info.X -= obj_speed.info.X;
+        this->info.Y -= obj_speed.info.Y;
         return *this;
     }
     coordinate &operator=(coordinate obj_position) { // 參數值不可以加& (**)
@@ -227,12 +225,8 @@ void Initialize() // set console title and hide console cursor
 {
 	// set console title
 	// SetConsoleTitle("Flunk You"); 
-	
-	// hide console cursor
-	// HANDLE hCon = ;
+
 	CONSOLE_CURSOR_INFO setting = {1,FALSE};
-	// cci.dwSize = 1;
-	// cci.bVisible = FALSE;
     // SetConsoleCursorInfo: 設定指定主控台畫面緩衝區之游標的大小和可見性。
 	SetConsoleCursorInfo(GetStdHandle(STD_OUTPUT_HANDLE), &setting);
 }
