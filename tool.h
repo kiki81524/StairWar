@@ -135,7 +135,8 @@ public:
 
     // 跟硬體要位置 (是否要擴充?)
     void locate() {
-        if (!position.is_out()) SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), position.get_COORD());
+        // if (position.info.X)
+        SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), position.get_COORD());
     }
 
     // 為了方便操作物件的位置，將此函數設成平面任何方向(以x,y調控)皆可移動
@@ -144,9 +145,26 @@ public:
         // coordinate down_position = coordinate(x,y);
         // down_position += position;
         coordinate new_position = calculate_shift_position(x,y);
-        if (!new_position.is_out()) SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), new_position.get_COORD());
+        SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), new_position.get_COORD());
         return new_position;
     }
+
+    // void locate() {
+    //     if (!position.is_out()) SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), position.get_COORD());
+    // }
+
+    // // 為了方便操作物件的位置，將此函數設成平面任何方向(以x,y調控)皆可移動
+    // // 暫時沒做多載設定
+    // coordinate shift_locate(short x, short y) {
+    //     // coordinate down_position = coordinate(x,y);
+    //     // down_position += position;
+    //     coordinate new_position = calculate_shift_position(x,y);
+    //     if (!new_position.is_out()) SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), new_position.get_COORD());
+    //     return new_position;
+    // }
+
+
+
 
     // 清除物件殘留影像
     // void clean() {
