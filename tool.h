@@ -237,8 +237,8 @@ public:
         if (GetKeyState(RIGHT)) x++;
         if (x!=0 || y!=0) {
             clean();
-            x %= 100;
-            y %= 30;
+            // x %= 100;
+            // y %= 30;
             relocate_position(shift_locate(x*KEY_BOARD_SPEED, y*KEY_BOARD_SPEED));
         }
         // Sleep(100);

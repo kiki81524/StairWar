@@ -42,6 +42,8 @@ public:
     // 建構子
     character(): x(0), y(0) {}
     character(short X, short Y): x(X), y(Y) {}
+
+    // 處理顯像的相關函數
     void clean() {
         locate(x+1, y); // x細部微調避免刪掉不是它的一部分的東西
         cout << " ";
@@ -57,6 +59,9 @@ public:
         cout << "/||\\";
         locate(x, y+2);
         cout << " /\\";
+    }
+    void move() {
+        // 
     }
     
 
