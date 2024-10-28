@@ -1,7 +1,7 @@
 #include <iostream>
 #include <cstdlib>
 #include <Windows.h>
-#include "tool.h"
+#include "tool_2.h"
 
 using namespace std;
 
@@ -13,9 +13,10 @@ int main() {
     Sleep(1000);
     character wang(15,25);
     wang.print();
-    Sleep(5000);
+    Sleep(1000);
     while (1) {
-        if (GetKeyState(VK_SPACE)) break;
+        Initialize();
+        if (GetAsyncKeyState(VK_ESCAPE)) break;
         // wang.print();
         wang.move();
     }
