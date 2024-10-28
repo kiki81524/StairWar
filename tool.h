@@ -44,6 +44,10 @@ public:
         // info.Y = xy.Y % Y_RANGE;
     }
 
+    // 判斷是否超出打印範圍
+    bool is_out() {
+        if ((info.X > X_RANGE || info.X < 0) || (info.Y > Y_RANGE || info.Y < 0)) return true;
+    }
 
     // debug用
     void show() {cout<< info.X << " " << info.Y <<endl;}
@@ -131,6 +135,7 @@ public:
 
     // 跟硬體要位置 (是否要擴充?)
     void locate() {
+        // if (position.info.X)
         SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), position.get_COORD());
     }
 
