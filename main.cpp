@@ -5,15 +5,24 @@
 
 using namespace std;
 
-
 int main() {
     // locate(15, 15);
-    cout << "Hi52665!";
+    // cout << "Hi52665!";
+    Initialize();
+    
+    Sleep(1000);
     character wang(15,25);
     wang.print();
+    Sleep(5000);
+    while (1) {
+        if (GetKeyState(VK_SPACE)) break;
+        // wang.print();
+        wang.move();
+    }
     Sleep(1000);
-    wang.move();
+    cout << "Bye";
     Sleep(1000);
+    
 // ==================== 測試coordinate類
     // coordinate obj1(10,20), obj2(30,40), obj3(35,43);
     // coordinate obj4;
@@ -40,6 +49,6 @@ int main() {
     // ob1.clean();
     // ob2.clean();
 // ====================
-    system("pause");
+    // system("pause");
     return 0;
 }

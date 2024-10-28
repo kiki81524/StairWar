@@ -4,6 +4,14 @@
 #include <Windows.h>
 using namespace std;
 
+#define UP VK_UP // 輸入常數名VK_UP或者輸入value值0x26都行
+#define DOWN VK_DOWN // VK_DOWN/0x28
+#define LEFT VK_LEFT // VK_LEFT/0x25
+#define RIGHT VK_RIGHT // VK_RIGHT/0x27
+#define KEY_BOARD_SPEED 1
+#define X_RANGE 100
+#define Y_RANGE 30
+
 // 新增一個coordinate class方便處理COORD的位置資訊，使我們能做到讓帶有位置資訊的物件可以使用到一些運算子的功能
 class coordinate {
 private:
@@ -14,9 +22,13 @@ public:
         info.X = 0; info.Y = 0;
     }
     coordinate(short x, short y) {
+        x %= X_RANGE; y %= Y_RANGE;
         info.X = x; info.Y = y;
     }
-    coordinate(COORD xy): info(xy) {}
+    coordinate(COORD xy) {
+        info.X = xy.X % X_RANGE;
+        info.Y = xy.Y % Y_RANGE;
+    }
 
 
     // 獲得COORD用來與handle溝通(要用COORD)
@@ -24,10 +36,12 @@ public:
 
     // 用來開放外界更改內容的接口(採用函數多載)
     void assign_coordinate(short x, short y) {
+        x %= X_RANGE; y %= Y_RANGE;
         info.X = x; info.Y = y;
     }
     void assign_coordinate(COORD xy) { // 注意參數放的是COORD不是coordinate
-        info = xy;
+        info.X = xy.X % X_RANGE;
+        info.Y = xy.Y % Y_RANGE;
     }
 
 
@@ -37,19 +51,21 @@ public:
 
     // 運算子多載
     coordinate operator+(coordinate &obj_speed) {
-        return coordinate(info.X + obj_speed.info.X, info.Y + obj_speed.info.Y);
+        return coordinate(  (info.X + obj_speed.info.X) % X_RANGE,
+                            (info.Y + obj_speed.info.Y) % Y_RANGE);
     }
     coordinate operator-(coordinate &obj_speed) {
-        return coordinate(info.X - obj_speed.info.X, info.Y - obj_speed.info.Y);
+        return coordinate(  (info.X - obj_speed.info.X) % X_RANGE,
+                            (info.Y - obj_speed.info.Y) % Y_RANGE);
     }
     coordinate &operator+=(coordinate &obj_speed) {
-        this->info.X += obj_speed.info.X;
-        this->info.Y += obj_speed.info.Y;
+        info.X = (info.X + obj_speed.info.X) % X_RANGE;
+        info.Y = (info.Y + obj_speed.info.Y) % Y_RANGE;
         return *this;
     }
     coordinate &operator-=(coordinate &obj_speed) {
-        this->info.X -= obj_speed.info.X;
-        this->info.Y -= obj_speed.info.Y;
+        info.X = (info.X - obj_speed.info.X) % X_RANGE;
+        info.Y = (info.Y - obj_speed.info.Y) % Y_RANGE;
         return *this;
     }
     coordinate &operator=(coordinate obj_position) { // 參數值不可以加& (**)
@@ -68,6 +84,7 @@ class object {
 private:
     // short x; short y;
     coordinate position;
+    // short speed;
 public:
     // constructor:
     object(){}
@@ -119,11 +136,14 @@ public:
         SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), position.get_COORD());
     }
 
-    // 為了要實現跨行print物件，對locate不足的補救
-    void down_locate(short y) {
-        coordinate down_position = coordinate(0,y);
-        down_position += position;
-        SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), down_position.get_COORD());
+    // 為了方便操作物件的位置，將此函數設成平面任何方向(以x,y調控)皆可移動
+    // 暫時沒做多載設定
+    coordinate shift_locate(short x, short y) {
+        // coordinate down_position = coordinate(x,y);
+        // down_position += position;
+        coordinate new_position = calculate_shift_position(x,y);
+        SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), new_position.get_COORD());
+        return new_position;
     }
 
     // 清除物件殘留影像
@@ -164,35 +184,64 @@ public:
     }
 
     // 子類別實作虛擬函數時，可以不加virtual關鍵字
+    void clean() {
+        locate();
+        cout << "    " ;
+        // shift_locate(0,1); // x為正值是往右，y為正值是往下
+        // cout << "     " ;
+        // shift_locate(0,2);
+        // cout << "    " ;
+    }
     void print() {
         locate();
-        cout << "  O" ;//<< endl;
-        down_locate(1);
-        cout << "/||\\" ;//<< endl;
-        down_locate(2);
-        cout << " /\\" ;//<< endl;
+        cout << " O" ;//<< endl;
+        // shift_locate(0,1);
+        // cout << "/||\\" ;//<< endl;
+        // shift_locate(0,2);
+        // cout << " /\\" ;//<< endl;
     }
+    // 透過不斷刷新實時位置來體現出移動的效果
+    // 而實際(遊戲人物))物件位置的(隨著鍵盤操作的)更動，可以另寫成一個函數，請該函數去判斷及調控
+    // 但該函數不可單獨使用，必須在其前搭配clean()使用，所以需要把它們包成move()函數
+    // 所有感覺還是直接在move()裡面寫整套就好...-->結論，move()中判斷keyboard status
     void move() {
-        Sleep(200);
-        clean();
-        locate();
-        Sleep(200);
-        cout << "---";
-        COORD sp;
-        sp.X = 3;
-        sp.Y = 4;
-        Sleep(200);
-        locate();
-        cout << "---";
+        short x = 0, y = 0;
+        // 只有在確實clean完原位的殘影後，才可以改動此(遊戲人物)物件的位置，否則會有殘影
+        if (GetKeyState(UP)) y--; // GetAsyncKeyState
+        if (GetKeyState(DOWN)) y++;
+        if (GetKeyState(LEFT)) x--;
+        if (GetKeyState(RIGHT)) x++;
+        if (x!=0 || y!=0) {
+            clean();
+            x %= 100;
+            y %= 30;
+            relocate_position(shift_locate(x*KEY_BOARD_SPEED, y*KEY_BOARD_SPEED));
+        }
+        // Sleep(100);
+        print();
     }
 };
 
+// 隱藏游標閃爍(否則會出現游標不停在好幾個位置閃爍的視覺效果)
+void Initialize() // set console title and hide console cursor
+{
+	// set console title
+	// SetConsoleTitle("Flunk You"); 
+	
+	// hide console cursor
+	// HANDLE hCon = ;
+	CONSOLE_CURSOR_INFO setting = {1,FALSE};
+	// cci.dwSize = 1;
+	// cci.bVisible = FALSE;
+    // SetConsoleCursorInfo: 設定指定主控台畫面緩衝區之游標的大小和可見性。
+	SetConsoleCursorInfo(GetStdHandle(STD_OUTPUT_HANDLE), &setting);
+}
 
-// void locate(short x, short y) {
-//     COORD position; // COORD結構的兩個成員X和Y都是short型態
-//     position.X = x; position.Y = y;
-//     SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), position); // 將游標locate到你position指定的位置
-// }
+void locate(short x, short y) {
+    COORD position; // COORD結構的兩個成員X和Y都是short型態
+    position.X = x; position.Y = y;
+    SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), position); // 將游標locate到你position指定的位置
+}
 
 // void locate(COORD position) { // 函數多載
 //     SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), position); // 將游標locate到你position指定的位置
