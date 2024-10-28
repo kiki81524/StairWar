@@ -133,6 +133,8 @@ public:
         return position + POSITION;
     }
 
+    // 因為物件有不同的大小，所以比起寫在object中，寫在各個子類別物件中比較好操作
+
     // 跟硬體要位置 (是否要擴充?)
     void locate() {
         // if (position.info.X)
@@ -149,6 +151,8 @@ public:
         return new_position;
     }
 
+    // 想將判斷是否超出界線，但是發現這樣寫的話，不如直接在比較前面一點的步驟就判斷超線然後立即處理
+    // 例如移動到底就不允許前進
     // void locate() {
     //     if (!position.is_out()) SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), position.get_COORD());
     // }
