@@ -3,6 +3,7 @@
 #include <cstdlib>
 #include <ctime> // time_t, difftime, time
 #include <Windows.h>
+#include <list>
 using namespace std;
 
 #define UP VK_UP // 輸入常數名VK_UP或者輸入value值0x26都行
@@ -11,13 +12,16 @@ using namespace std;
 #define RIGHT VK_RIGHT // VK_RIGHT/0x27
 #define JUMP VK_SPACE
 #define KEY_BOARD_SPEED 1
-#define X_lRANGE 0
-#define X_rRANGE 140
-#define Y_uRANGE 0 // 到頂不知道為什麼，print會有殘影->因為你第一行print了別的數字
-#define Y_dRANGE 35
+#define X_lRANGE 3
+#define X_rRANGE 143
+#define Y_uRANGE 3 // 到頂不知道為什麼，print會有殘影->因為你第一行print了別的數字
+#define Y_dRANGE 38
 #define UPDATE_INTERVAL 25
 #define GRAVITY 0.16 // 定義跳躍用的重力加速度大小
-#define VELOCITY 2 // 跳躍的初速度(v_0) // v_0 = g*t可以算到最頂端的所需的時間->v_0*t-g*t*t = 0
+#define VELOCITY 2.1 // 跳躍的初速度(v_0) // v_0 = g*t可以算到最頂端的所需的時間->v_0*t-g*t*t = 0
+#define STAIR_LEN 10
+
+
 
 // 不做函數多載了，統一都是給x,y座標
 void locate(double x, double y) {
@@ -126,21 +130,21 @@ public:
         // 速度更新(算入加速度作用)
         if (!grounded) {
             velocity += GRAVITY;
-        if (y + velocity > Y_dRANGE) {
-            y= Y_dRANGE;
-            grounded = true;
-            velocity = 0;
+            if (y + velocity > Y_dRANGE) {
+                y= Y_dRANGE;
+                // grounded = true; 下面有if做了，不用多此一舉
+                velocity = 0;
+            }
+            else if (y + velocity < Y_uRANGE) {
+                y = Y_uRANGE;
+                // 撞到天花板，作用力等於反作用力，加速度化成速度應該沒毛病
+                velocity = -velocity;
+            }
+            // 位移更新(算入速度作用)
+            else y = y + velocity;
         }
-        else if (y + velocity < Y_uRANGE) {
-            y = Y_uRANGE;
-            // 撞到天花板，作用力等於反作用力，加速度化成速度應該沒毛病
-            velocity = -velocity;
-        }
-        // 位移更新(算入速度作用)
-        else y = y + velocity;
-        }
-        if (y == Y_dRANGE) grounded==true;
-        else grounded==false;
+        if (y == Y_dRANGE) grounded=true;
+        // else grounded==false;
     }
 
 };
@@ -162,10 +166,12 @@ public:
     }
     ~stair() {
         clean();
+        cout << "stairs destructor!\n";
+        Sleep(100);
         cnt--;
     }
     void clean() {
-        for (int i=0;i<10;i++) {
+        for (int i=0;i<STAIR_LEN;i++) {
             if ((x+i>X_lRANGE) || (x+i<X_rRANGE)) {
                 locate(x+i, y);
                 cout << " ";
@@ -173,7 +179,7 @@ public:
         }
     }
     void print() {
-        for (int i=0;i<10;i++) {
+        for (int i=0;i<STAIR_LEN;i++) {
             if ((x+i>X_lRANGE) || (x+i<X_rRANGE)) {
                 locate(x+i, y);
                 cout << "H"; // █
@@ -187,7 +193,18 @@ public:
 };
 int stair::cnt = 0;
 
-void pr(stair s) {
-    cout << s.x << " " << s.y;
+// void pr(stair s) {
+//     cout << s.x << " " << s.y;
+// }
+
+void character_stair_interaction(list<stair> &STAIRS, character &person) {
+    for (auto s=STAIRS.begin();s!=STAIRS.end();s++) {
+        // 如果不將s->和person.y取整後做比較，就很難符合剛好差1的情況，因為小數點不同的機會佔絕大多數
+        if ((int(s->y)-int(person.y)==1) && (s->x <= person.x && person.x <= s->x+STAIR_LEN) && (!person.grounded)) {
+            person.grounded = true;
+        }
+        (*s).print();
+        // cout << (*s).x;
+    }
 }
 
