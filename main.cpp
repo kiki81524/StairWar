@@ -18,8 +18,6 @@ int main() {
         Initialize();
         if (GetAsyncKeyState(VK_ESCAPE)) break;
         // wang.print();
-        time_t t1, t2;
-        time(&t1);
         wang.move();
     }
     Sleep(1000);
