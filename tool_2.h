@@ -39,22 +39,8 @@ void Initialize() // set console title and hide console cursor
 	SetConsoleCursorInfo(GetStdHandle(STD_OUTPUT_HANDLE), &setting);
 }
 
-// bool touch_ground_check() { // start_time必須嚴格控管，沒落地(但不一定在地面，階梯上都算"地")不可開始跳
-    
-// }
-// 計算跳躍運動時的垂直方向位移量(取整數)，往上是負值，往下是正值
-// double jump_shift_calculate(time_t &start_time, time_t now_time) {
-//     double interval_time = difftime(now_time, start_time);
-//     // 對start_time做根源性地改變，因為我們需要計算[距離前一次計算跳躍的位移]的時間差
-//     start_time = now_time;
-//     // 每個時間點的位置x_t = v_0*t - g*t*t
-//     // x_t - x_0才是位移，我們這邊算的是位移，因為我會更新每次函數進來的start_time
-//     short shift = (short)((GRAVITY*interval_time - VELOCITY) * interval_time);
-//     return shift;
-// }
-
 class character {
-private:
+public:
     // 統一我設計的物件的資訊都用x, y傳遞，除非遇到必須要其他型態(例如COORD)的情況
     double x, y;
     double speed; // speed設成整數，因為你的任何移動都只能是整數操作，行跟列的定位沒有在跟你小數的啦
@@ -66,27 +52,29 @@ private:
     //     // 這邊設定的5和3是考慮了遊戲角色的形狀做的因應，變動人物印出風格的話需要改這些參數
     //     if ((x+5 > X_rRANGE || x < X_lRANGE) || (y+3 > Y_dRANGE || y < Y_uRANGE)) return true;
     // }
-public:
+
     // 建構子
     character(): x(0), y(0), speed(1), velocity(0), grounded(true) {}
     character(double X, double Y, double SPEED = 1, double _VELOCITY = 0, bool GROUNDED = true): x(X), y(Y), speed(SPEED), velocity(_VELOCITY), grounded(GROUNDED) {}
 
     // 處理顯像的相關函數
     void clean() {
-        locate(x+1, y); // x細部微調避免刪掉不是它的一部分的東西
+        locate(x-2, y-2);//(x+1, y); // x細部微調避免刪掉不是它的一部分的東西
         cout << " ";
-        locate(x, y+1);
+        locate(x-3, y-1);//(x, y+1);
         cout << "    ";
-        locate(x+1, y+2); // x細部微調避免刪掉不是它的一部分的東西
+        locate(x-2, y);//(x+1, y+2); // x細部微調避免刪掉不是它的一部分的東西
         cout << "  ";
     }
     void print() {
-        locate(x, y);
-        cout << " O";
-        locate(x, y+1);
+        // 雖然有在下方move的邏輯中限制人物的範圍，但下方邏輯限制的是第一個點的位置，其他身體部件還是會超出界線
+        // 所以要改一下print/clean定位的邏輯(相對位置修改)
+        locate(x-2, y-2);//(x, y); 
+        cout << "O";
+        locate(x-3, y-1);//(x, y+1); 
         cout << "/||\\";
-        locate(x, y+2);
-        cout << " /\\";
+        locate(x-2, y);//(x, y+2); 
+        cout << "/\\";
     }
     // 嘗試加入jump的支援
     void move(){//time_t &start_time, time_t now_time) { // bool can_jump
@@ -133,7 +121,7 @@ public:
             grounded = false;
         }
     }
-
+    // update_status專門用來更新垂直方向的位置/速度的變化
     void update_status() {
         // 速度更新(算入加速度作用)
         if (!grounded) {
@@ -155,34 +143,51 @@ public:
         else grounded==false;
     }
 
+};
 
-    // 保留初版move函數
+class stair {
+private:
+    static int cnt; // 計算場上stair的數量，初值不可in-class initialization，static也不允許不給初值
+public:
+    // 雖然隨機分配給x, y的會是整數，但為了後續位移的操作，還是設成double
+    double x, y;
+
+    stair() {
+        time_t random_seed;
+        cnt++;
+        srand(time(&random_seed) + cnt*7);
+        x = (rand() % (X_rRANGE-X_lRANGE)) + X_lRANGE; // 如果stair超出畫面就不要print出來
+        y = (rand() % (Y_dRANGE-Y_uRANGE)) + Y_uRANGE;
+        print();
+    }
+    ~stair() {
+        clean();
+        cnt--;
+    }
+    void clean() {
+        for (int i=0;i<10;i++) {
+            if ((x+i>X_lRANGE) || (x+i<X_rRANGE)) {
+                locate(x+i, y);
+                cout << " ";
+            }
+        }
+    }
+    void print() {
+        for (int i=0;i<10;i++) {
+            if ((x+i>X_lRANGE) || (x+i<X_rRANGE)) {
+                locate(x+i, y);
+                cout << "H"; // █
+            }
+        }
+    }
     // void move() {
-    //     short up = 0, down = 0, left = 0, right = 0;//, jump = 0;
-    //     if (GetAsyncKeyState(UP)) up++; // GetAsyncKeyState
-    //     if (GetAsyncKeyState(DOWN)) down++;
-    //     if (GetAsyncKeyState(LEFT)) left++;
-    //     if (GetAsyncKeyState(RIGHT)) right++;
-    //     // if (GetAsyncKeyState(JUMP)) jump++;
-    //     // Sleep(100);
-        
-    //     Sleep(UPDATE_INTERVAL); // 如果不加Sleep，按一下鍵會直接跑到邊界去，Sleep數值越小，移動速度越快
-    //     if (( up | down | left | right )!=0) { //| jump 
-    //         // locate(0,0);
-    //         // cout << up << " " << down << " " << left << " " << right;
-    //         clean();
-    //         if (x + right*speed > X_rRANGE) x = X_rRANGE;
-    //         else if (x - left*speed < X_lRANGE) x = X_lRANGE;
-    //         else x = x + right*speed - left*speed;
 
-    //         if (y + down*speed > Y_dRANGE) y= Y_dRANGE;
-    //         else if (y - up*speed < Y_uRANGE) y = Y_uRANGE;
-    //         else y = y + down*speed - up*speed;
-    //     }
-    //     locate(x, y);
-    //     // Sleep(100);
-    //     print();
     // }
-    
 
 };
+int stair::cnt = 0;
+
+void pr(stair s) {
+    cout << s.x << " " << s.y;
+}
+

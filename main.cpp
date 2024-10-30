@@ -12,7 +12,16 @@ int main() {
     
     Sleep(1000);
     character wang(15,25);
+    character lee(50,10);
+    stair s1;
+    
+    // s1.print();
+    stair s2, s3;
+    pr(s2);
+    // s2.print();
+    // s3.print();
     wang.print();
+    lee.print();
     Sleep(1000);
     while (1) {
         Initialize();
