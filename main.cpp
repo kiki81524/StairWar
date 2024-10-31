@@ -4,6 +4,7 @@
 #include "tool_2.h"
 
 using namespace std;
+#define PROBABILITY 5 //機率會是 (3/PROBABILITY)
 
 int main() {
     // locate(15, 15);
@@ -18,8 +19,18 @@ int main() {
     // character lee(50,10);
     // 建立樓梯物件
     list<stair*> stairs;
+    list<enermy*> enermies;
+    enermy* first_floor = new enermy();
+    enermies.push_back(first_floor);
     for (int i=0;i<10;i++) {
+        time_t random_seed;
+        srand(time(&random_seed));
         stair* p = new stair();
+        if (rand() % PROBABILITY < 3) {
+            enermy* e = new enermy(*p);
+            enermies.push_back(e);
+        }
+        // 可以在生成stair時順便決定要不要生成敵人，這樣可以隨機分配部分stair上有敵人
         stairs.push_back(p);
     }
     wang.print();
@@ -29,10 +40,16 @@ int main() {
         if (GetAsyncKeyState(VK_ESCAPE)) break;
         
         // wang.print();
-        chang.move();
-        chung.move();
+        // chang.move();
+        // chung.move();
         wang.move();
         character_stair_interaction(stairs,wang);
+        character_enermy_interaction(enermies,wang);
+        locate(X_rRANGE+6, Y_uRANGE+10);
+        cout << "blood: " << wang.health;
+        // for (int i=0;i<wang.health;i++) {
+        //     cout << "|";
+        // }
     }
     Sleep(1000);
     cout << "Bye";

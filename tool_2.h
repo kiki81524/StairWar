@@ -2,6 +2,7 @@
 #include <iostream>
 #include <cstdlib>
 #include <ctime> // time_t, difftime, time
+#include <cmath>
 #include <Windows.h>
 #include <list>
 using namespace std;
@@ -20,6 +21,8 @@ using namespace std;
 #define GRAVITY 0.16 // 定義跳躍用的重力加速度大小
 #define VELOCITY 2.1 // 跳躍的初速度(v_0) // v_0 = g*t可以算到最頂端的所需的時間->v_0*t-g*t*t = 0
 #define STAIR_LEN 10
+#define HEALTH 10
+#define HARMFUL 20
 
 
 
@@ -49,6 +52,7 @@ public:
     double x, y;
     double speed; // speed設成整數，因為你的任何移動都只能是整數操作，行跟列的定位沒有在跟你小數的啦
     double velocity;
+    int health;
     // 判斷是否觸地
     bool grounded;
     // 都有了move的移動"前"判斷，就不需要is_out來移動"後"判斷了
@@ -58,8 +62,8 @@ public:
     // }
 
     // 建構子
-    character(): x(0), y(0), speed(1), velocity(0), grounded(true) {}
-    character(double X, double Y, double SPEED = 1, double _VELOCITY = 0, bool GROUNDED = true): x(X), y(Y), speed(SPEED), velocity(_VELOCITY), grounded(GROUNDED) {}
+    character(): x(0), y(0), speed(1), velocity(0), grounded(true), health(HEALTH) {}
+    character(double X, double Y, double SPEED = 1, double _VELOCITY = 0, bool GROUNDED = true): x(X), y(Y), speed(SPEED), velocity(_VELOCITY), grounded(GROUNDED), health(HEALTH) {}
 
     // 處理顯像的相關函數
     void clean() {
@@ -201,6 +205,7 @@ private:
 public:
     double x, y, speed;
     double left, right;
+    int harmful;
     enermy() { // 最下層的敵人，他的移動範圍和stair上的人不同
         time_t random_seed;
         cnt++;
@@ -209,6 +214,7 @@ public:
         y = Y_dRANGE;
         speed = (rand() % 10)*0.1; //(rand() % 3) + 
         left = X_lRANGE; right = X_rRANGE;
+        harmful = HARMFUL;
         print();
     }
     enermy(stair &s) { // stair上的敵人，所以要給他stair的資訊，這樣實作起來比較簡單
@@ -219,6 +225,7 @@ public:
         y = s.y - 1; // 站在stair上所以y要減1
         speed = (rand() % 5)*0.1; // 慢一點
         left = s.x; right = s.x + STAIR_LEN;
+        harmful = HARMFUL;
         print();
     }
     ~enermy() {
@@ -275,9 +282,31 @@ void character_stair_interaction(list<stair*> &STAIRS, character &person) {
                 person.y = s->y-1;
                 locate(person.x, person.y);
                 person.print();
+                if (person.health<HEALTH) person.health++;
             }
         }
         s->print();
     }
 }
 
+// 處理人物遇到敵人被扣血的狀況，harmful值是敵人傷害你一次需要回復攻擊力的時間，越高表示越不具傷害性
+void character_enermy_interaction(list<enermy*> &ENERMY, character &person) {
+    for (auto p : ENERMY) {
+        if ((abs(p->x-person.x)<=3) && (abs(p->y-person.y)<=3) && p->harmful == HARMFUL) {
+            person.health--;
+            p->harmful = 0;
+        }
+        if (p->harmful<HARMFUL) p->harmful++;
+        p->move();
+    }
+}
+
+// to do list:
+// 改變顏色
+// 一些其他美觀和guide、血條、積分等等的設定
+// 爬上樓要捲動畫面
+// O 如何隨機分配敵人在部分stair上
+// O 敵人撞到你要扣血
+// 殲滅敵人要獲得積分(積分可以幹嘛?我們目標是賺積分還是爬樓?)
+// 殲滅敵人用的子彈
+// 我想使用中文字，可能要改編碼?
