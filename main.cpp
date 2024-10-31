@@ -12,33 +12,34 @@ int main() {
     
     Sleep(1000);
     character wang(15,25);
-    character lee(50,10);
+    enermy chang;
     stair s1;
-    list<stair> stairs;
-    // s1.print();
-    stair s2, s3;
-    // pr(s2);
-    // s2.print();
-    // s3.print();
+    enermy chung(s1);
+    // character lee(50,10);
+    // 建立樓梯物件
+    list<stair*> stairs;
+    for (int i=0;i<10;i++) {
+        stair* p = new stair();
+        stairs.push_back(p);
+    }
     wang.print();
-    lee.print();
-    stairs.push_back(s1);
-    stairs.push_back(s2);
-    stairs.push_back(s3);
-    stair s4, s5;
-    stairs.push_back(s4);
-    stairs.push_back(s5);
     Sleep(1000);
     while (1) {
         Initialize();
         if (GetAsyncKeyState(VK_ESCAPE)) break;
         
         // wang.print();
+        chang.move();
+        chung.move();
         wang.move();
         character_stair_interaction(stairs,wang);
     }
     Sleep(1000);
     cout << "Bye";
+    // 銷毀所有的樓梯物件
+    for (auto p : stairs) {
+        delete p;
+    }
     Sleep(1000);
     
 // ==================== 測試coordinate類

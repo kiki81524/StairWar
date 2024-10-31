@@ -63,21 +63,21 @@ public:
 
     // 處理顯像的相關函數
     void clean() {
-        locate(x-2, y-2);//(x+1, y); // x細部微調避免刪掉不是它的一部分的東西
+        locate(x-1, y-2);//(x+1, y); // x細部微調避免刪掉不是它的一部分的東西
         cout << " ";
-        locate(x-3, y-1);//(x, y+1);
+        locate(x-2, y-1);//(x, y+1);
         cout << "    ";
-        locate(x-2, y);//(x+1, y+2); // x細部微調避免刪掉不是它的一部分的東西
+        locate(x-1, y);//(x+1, y+2); // x細部微調避免刪掉不是它的一部分的東西
         cout << "  ";
     }
     void print() {
         // 雖然有在下方move的邏輯中限制人物的範圍，但下方邏輯限制的是第一個點的位置，其他身體部件還是會超出界線
         // 所以要改一下print/clean定位的邏輯(相對位置修改)
-        locate(x-2, y-2);//(x, y); 
+        locate(x-1, y-2);//(x, y); 
         cout << "O";
-        locate(x-3, y-1);//(x, y+1); 
+        locate(x-2, y-1);//(x, y+1); 
         cout << "/||\\";
-        locate(x-2, y);//(x, y+2); 
+        locate(x-1, y);//(x, y+2); 
         cout << "/\\";
     }
     // 嘗試加入jump的支援
@@ -194,20 +194,80 @@ public:
 // 靜態類別成員的初始化只能在外部進行
 int stair::cnt = 0;
 
-// void pr(stair s) {
-//     cout << s.x << " " << s.y;
-// }
+// 敵人class，分為最下層的敵人(應該只有新手村時才看得到)，以及樓梯上負責巡視的敵人(暫時不設定武器給他們)
+class enermy {
+private:
+    static int cnt;
+public:
+    double x, y, speed;
+    double left, right;
+    enermy() { // 最下層的敵人，他的移動範圍和stair上的人不同
+        time_t random_seed;
+        cnt++;
+        srand(time(&random_seed));
+        x = (rand() % (X_rRANGE-X_lRANGE)) + X_lRANGE;
+        y = Y_dRANGE;
+        speed = (rand() % 10)*0.1; //(rand() % 3) + 
+        left = X_lRANGE; right = X_rRANGE;
+        print();
+    }
+    enermy(stair &s) { // stair上的敵人，所以要給他stair的資訊，這樣實作起來比較簡單
+        time_t random_seed;
+        cnt++;
+        srand(time(&random_seed));
+        x = s.x + (rand() % STAIR_LEN);
+        y = s.y - 1; // 站在stair上所以y要減1
+        speed = (rand() % 5)*0.1; // 慢一點
+        left = s.x; right = s.x + STAIR_LEN;
+        print();
+    }
+    ~enermy() {
+        clean();
+        cnt--;
+    }
+    // 照抄遊戲人物的外觀(所以之後要以顏色區分)
+    void clean() {
+        locate(x-1, y-2);
+        cout << " ";
+        locate(x-2, y-1);
+        cout << "    ";
+        locate(x-1, y);
+        cout << "  ";
+    }
+    void print() {
+        locate(x-1, y-2);
+        cout << "O";
+        locate(x-2, y-1);
+        cout << "/||\\";
+        locate(x-1, y);
+        cout << "/\\";
+    }
+    void move() {
+        clean();
+        if (x <= left) {
+            x = left;
+            speed = -speed; // (換方向走)
+        }
+        if (x >= right) {
+            x = right;
+            speed = -speed; // (換方向走)
+        }
+        x = x + speed;
+        print();
+    }
+};
+int enermy::cnt = 0;
 
-void character_stair_interaction(list<stair> &STAIRS, character &person) {
-    for (auto s=STAIRS.begin();s!=STAIRS.end();s++) {
-        // 如果不將s->和person.y取整後做比較，就很難符合剛好差1的情況，因為小數點不同的機會佔絕大多數 // (int(s->y)-int(person.y)==1)
+
+// 處理遊戲人物跳到stair上的"腳踏實地"狀態
+// 放在stair list中的stair物件才有觸地且不會被清掉螢幕顯示的效果
+void character_stair_interaction(list<stair*> &STAIRS, character &person) {
+    for (auto it=STAIRS.begin();it!=STAIRS.end();it++) {
+        auto s = *it;
         if ((s->x <= person.x && person.x <= s->x+STAIR_LEN) && (!person.grounded)) {
-            // (person.y+person.velocity && (int(s->y)-int(person.y)<=10) && (int(s->y)-int(person.y)>=1)) ||
-
-            // if ((person.velocity>0) && (int(s->y)-int(person.y+person.velocity)<0) && (int(s->y)-int(person.y)>=1)) { //(s->y - person.y > 0.5 && s->y - person.y < 1.8) && 
-            //     person.grounded = true;
-            // }
-            // else if (int(s->y)-int(person.y)==1) person.grounded = true;
+            // 如果不將s->和person.y取整後做比較，就很難符合剛好差1的情況，因為小數點不同的機會佔絕大多數
+            // 當人物在移動時，有時候速度會太快，所以要提早處理他的grounded性質
+            // 已知bug: 當人物站在stair上且頭頂距離天花板只有1格空間時，無法起跳，可能是只要起跳就會馬上被這邊還原成站在stair上的位置
             if ((int(s->y)-int(person.y)>=1) && s->y - person.y < VELOCITY) {
                 person.grounded = true;
                 person.velocity = 0;
@@ -217,8 +277,7 @@ void character_stair_interaction(list<stair> &STAIRS, character &person) {
                 person.print();
             }
         }
-        (*s).print();
-        // cout << (*s).x;
+        s->print();
     }
 }
 
