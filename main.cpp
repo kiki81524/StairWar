@@ -25,6 +25,9 @@ int main() {
     stairs.push_back(s1);
     stairs.push_back(s2);
     stairs.push_back(s3);
+    stair s4, s5;
+    stairs.push_back(s4);
+    stairs.push_back(s5);
     Sleep(1000);
     while (1) {
         Initialize();

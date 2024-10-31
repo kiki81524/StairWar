@@ -191,6 +191,7 @@ public:
     // }
 
 };
+// 靜態類別成員的初始化只能在外部進行
 int stair::cnt = 0;
 
 // void pr(stair s) {
@@ -199,9 +200,22 @@ int stair::cnt = 0;
 
 void character_stair_interaction(list<stair> &STAIRS, character &person) {
     for (auto s=STAIRS.begin();s!=STAIRS.end();s++) {
-        // 如果不將s->和person.y取整後做比較，就很難符合剛好差1的情況，因為小數點不同的機會佔絕大多數
-        if ((int(s->y)-int(person.y)==1) && (s->x <= person.x && person.x <= s->x+STAIR_LEN) && (!person.grounded)) {
-            person.grounded = true;
+        // 如果不將s->和person.y取整後做比較，就很難符合剛好差1的情況，因為小數點不同的機會佔絕大多數 // (int(s->y)-int(person.y)==1)
+        if ((s->x <= person.x && person.x <= s->x+STAIR_LEN) && (!person.grounded)) {
+            // (person.y+person.velocity && (int(s->y)-int(person.y)<=10) && (int(s->y)-int(person.y)>=1)) ||
+
+            // if ((person.velocity>0) && (int(s->y)-int(person.y+person.velocity)<0) && (int(s->y)-int(person.y)>=1)) { //(s->y - person.y > 0.5 && s->y - person.y < 1.8) && 
+            //     person.grounded = true;
+            // }
+            // else if (int(s->y)-int(person.y)==1) person.grounded = true;
+            if ((int(s->y)-int(person.y)>=1) && s->y - person.y < VELOCITY) {
+                person.grounded = true;
+                person.velocity = 0;
+                person.clean();
+                person.y = s->y-1;
+                locate(person.x, person.y);
+                person.print();
+            }
         }
         (*s).print();
         // cout << (*s).x;
