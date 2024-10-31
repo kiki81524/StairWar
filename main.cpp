@@ -33,6 +33,11 @@ int main() {
         // 可以在生成stair時順便決定要不要生成敵人，這樣可以隨機分配部分stair上有敵人
         stairs.push_back(p);
     }
+    list<bullet*> a, b;
+    for (int i=0;i<40;i++) {
+        bullet* p = new bullet;
+        a.push_back(p);
+    }
     wang.print();
     Sleep(1000);
     while (1) {
@@ -45,6 +50,8 @@ int main() {
         wang.move();
         character_stair_interaction(stairs,wang);
         character_enermy_interaction(enermies,wang);
+        shoot(a,b,wang);
+        bullet_move(b);
         locate(X_rRANGE+6, Y_uRANGE+10);
         cout << "blood: " << wang.health;
         // for (int i=0;i<wang.health;i++) {

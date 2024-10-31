@@ -23,6 +23,8 @@ using namespace std;
 #define STAIR_LEN 10
 #define HEALTH 10
 #define HARMFUL 20
+#define BULLET_SPEED 0.3
+#define COOL_TIME 2 // 子彈發射的冷卻期
 
 
 
@@ -266,6 +268,37 @@ public:
 int enermy::cnt = 0;
 
 
+class bullet { // 子彈重複利用，射死敵人後回歸子彈匣就不用一直new/delete
+public:
+    double x,y,speed;
+    bool direction; // 左: false/右: true;
+    int cool_time;
+    bullet(): speed(BULLET_SPEED), cool_time(0) {} // 先不指派位置及方向，等遊戲人物發射時再決定
+    void clean() {
+        locate(x, y);
+        cout << " ";
+    }
+    void print() {
+        locate(x, y);
+        cout << "o";
+    }
+    void move() {
+        clean();
+        if (direction && x <= X_rRANGE) { // 右邊
+            // if (x > X_rRANGE) clean(); // 假裝它沒了
+            // else 
+            x += speed;
+            print();
+        }
+        if (!direction && x >= X_lRANGE) { // 左邊
+            // if (x < X_lRANGE) clean(); // 假裝它沒了
+            // else 
+            x -= speed;
+            print();
+        }
+    }
+};
+
 // 處理遊戲人物跳到stair上的"腳踏實地"狀態
 // 放在stair list中的stair物件才有觸地且不會被清掉螢幕顯示的效果
 void character_stair_interaction(list<stair*> &STAIRS, character &person) {
@@ -301,6 +334,39 @@ void character_enermy_interaction(list<enermy*> &ENERMY, character &person) {
     }
 }
 
+void shoot(list<bullet*> &available, list<bullet*> &busy, character &person) {
+    // while (1)太快，你這邊會一次射出好多顆子彈，要想辦法限制瞬發數量
+    if (GetAsyncKeyState(0x41) || GetAsyncKeyState(0x53)) { // A / S
+        if (!available.empty()) {
+            bullet* p = available.front();
+            if (p->cool_time==COOL_TIME) {
+                p->cool_time = 0;
+                available.pop_front();
+                if (GetAsyncKeyState(0x53)) { // 右邊發子彈
+                    p->x = person.x+2;
+                    p->y = person.y-1;
+                    p->direction = true;
+                }
+                else {
+                    p->x = person.x-2; // 雖然理論上位置是person.x-3才對，但視覺效果差了一些，用person.x-2比較好
+                    p->y = person.y-1;
+                    p->direction = false;
+                }
+                busy.push_back(p);
+            }
+            else {
+                p->cool_time++;
+            }
+        }
+    }
+}
+
+void bullet_move(list<bullet*> &busy){
+    for (auto &b : busy) {
+        b->move();
+    }
+}
+
 // to do list:
 // 改變顏色
 // 一些其他美觀和guide、血條、積分等等的設定
@@ -308,5 +374,5 @@ void character_enermy_interaction(list<enermy*> &ENERMY, character &person) {
 // O 如何隨機分配敵人在部分stair上
 // O 敵人撞到你要扣血
 // 殲滅敵人要獲得積分(積分可以幹嘛?我們目標是賺積分還是爬樓?)
-// 殲滅敵人用的子彈
+// O殲滅敵人用的子彈
 // 我想使用中文字，可能要改編碼?
