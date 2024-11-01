@@ -28,6 +28,7 @@ using namespace std;
 #define EDGE_ADJUST 5
 #define SCROLL_THRESHOLD (Y_dRANGE-((Y_dRANGE-Y_uRANGE)/2))
 #define SCROLL_SPEED 0.1
+#define PROBABILITY 5 //機率會是 (3/PROBABILITY)
 int scroll_count = 0; // 紀錄捲動數量，用來給子彈和決定何時不畫地板
 bool show_floor = true;
 
@@ -479,6 +480,63 @@ void scroll_screen(list<enermy*> &living, list<bullet*> &active, list<stair*> &S
         }
     }
 }
+
+
+void Game_Start() {
+    character player(X_lRANGE+2,Y_dRANGE);
+
+    // 建立樓梯物件
+    list<stair*> stairs, block; // stairs是在遊戲介面中的stair，block則是不在遊戲介面中的stair(待命中)
+    list<enermy*> enermies, dead; // enermies: 遊戲介面中/ dead: 待命中
+    list<bullet*> bullet_in_gun, bullet_in_field; //  bullet_in_field: 遊戲介面中/ bullet_in_gun: 待命中
+    // 以下尚未整理
+    enermy* first_floor = new enermy();
+    enermies.push_back(first_floor);
+    for (int i=0;i<10;i++) {
+        time_t random_seed;
+        srand(time(&random_seed));
+        stair* p = new stair();
+        if (rand() % PROBABILITY < 3) {
+            enermy* e = new enermy(*p);
+            enermies.push_back(e);
+        }
+        // 可以在生成stair時順便決定要不要生成敵人，這樣可以隨機分配部分stair上有敵人
+        stairs.push_back(p);
+    }
+    for (int i=0;i<30;i++) {
+        bullet* p = new bullet;
+        bullet_in_gun.push_back(p);
+    }
+    player.print();
+    Sleep(2000);
+    clean_screen(150,50,0,0);
+    while (1) {
+        Initialize();
+        print_edge();
+        if (GetAsyncKeyState(VK_ESCAPE)) break;
+        
+        // wang.print();
+        // chang.move();
+        // chung.move();
+        player.move();
+        scroll_screen(enermies,bullet_in_field,stairs,player);
+        character_stair_interaction(stairs,player);
+        character_enermy_interaction(enermies,player);
+        shoot(bullet_in_gun,bullet_in_field,player);
+        // bullet_move(b);
+        bullet_enermy_interaction(enermies,dead,bullet_in_field,bullet_in_gun);
+        locate(X_rRANGE+6, Y_uRANGE+10);
+        cout << "blood: " << player.health;
+        // for (int i=0;i<wang.health;i++) {
+        //     cout << "|";
+        // }
+    }
+    // 銷毀所有的樓梯物件
+    for (auto p : stairs) {
+        delete p;
+    }
+}
+
 
 
 // to do list:
