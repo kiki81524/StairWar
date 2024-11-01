@@ -7,10 +7,8 @@ using namespace std;
 #define PROBABILITY 5 //機率會是 (3/PROBABILITY)
 
 int main() {
-    // locate(15, 15);
-    // cout << "Hi52665!";
     Initialize();
-    
+    // change_size(200,100);
     Sleep(1000);
     character wang(15,25);
     enermy chang;
@@ -40,19 +38,21 @@ int main() {
     }
     wang.print();
     Sleep(2000);
-    clean_screen();
+    clean_screen(150,50,0,0);
     while (1) {
         Initialize();
+        print_edge();
         if (GetAsyncKeyState(VK_ESCAPE)) break;
         
         // wang.print();
         // chang.move();
         // chung.move();
         wang.move();
+        scroll_screen(enermies,b,stairs,wang);
         character_stair_interaction(stairs,wang);
         character_enermy_interaction(enermies,wang);
         shoot(a,b,wang);
-        bullet_move(b);
+        // bullet_move(b);
         bullet_enermy_interaction(enermies,dead,b,a);
         locate(X_rRANGE+6, Y_uRANGE+10);
         cout << "blood: " << wang.health;
@@ -61,7 +61,8 @@ int main() {
         // }
     }
     Sleep(1000);
-    cout << "Bye";
+    cout << "Bye";//✲ ✳ ✴ ✵ ✶ ✷ ✸ ";
+    Sleep(1000);
     // 銷毀所有的樓梯物件
     for (auto p : stairs) {
         delete p;

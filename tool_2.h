@@ -4,6 +4,7 @@
 #include <ctime> // time_t, difftime, time
 #include <cmath>
 #include <Windows.h>
+// #include <winuser.h> // CreateWindowExA
 #include <list>
 using namespace std;
 
@@ -13,20 +14,21 @@ using namespace std;
 #define RIGHT VK_RIGHT // VK_RIGHT/0x27
 #define JUMP VK_SPACE
 #define KEY_BOARD_SPEED 1
-#define X_lRANGE 2
-#define X_rRANGE 137
-#define Y_uRANGE 2 // 到頂不知道為什麼，print會有殘影->因為你第一行print了別的數字
-#define Y_dRANGE 42
+#define X_lRANGE 3
+#define X_rRANGE 138
+#define Y_uRANGE 4 // 到頂不知道為什麼，print會有殘影->因為你第一行print了別的數字
+#define Y_dRANGE 44
 #define UPDATE_INTERVAL 25
 #define GRAVITY 0.16 // 定義跳躍用的重力加速度大小
 #define VELOCITY 2.1 // 跳躍的初速度(v_0) // v_0 = g*t可以算到最頂端的所需的時間->v_0*t-g*t*t = 0
 #define STAIR_LEN 10
 #define HEALTH 10
 #define HARMFUL 20
-#define BULLET_SPEED 0.3
+#define BULLET_SPEED 0.35
 #define COOL_TIME 2 // 子彈發射的冷卻期
 #define EDGE_ADJUST 5
-
+#define SCROLL_THRESHOLD (Y_dRANGE-((Y_dRANGE-Y_uRANGE)/2))
+#define SCROLL_SPEED 0.1
 
 
 // 不做函數多載了，統一都是給x,y座標
@@ -35,18 +37,33 @@ void locate(double x, double y) {
     SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), position); // 將游標locate到你position指定的位置
 }
 
+// 想改變console視窗大小，但沒有用
+// void change_size(short x, short y) {
+//     COORD size = {.X = x, .Y = y};
+//     SetConsoleScreenBufferSize(GetStdHandle(STD_OUTPUT_HANDLE), size);
+// }
+
 // 待修改，有點希望將它們拆成不同函數
 // 隱藏游標閃爍(否則會出現游標不停在好幾個位置閃爍的視覺效果)
 // win 10終端機上面不知道為什麼就是無法隱藏游標-->要在while(1)中每輪都設隱藏
 void Initialize() // set console title and hide console cursor
 {
-	// set console title
+	// 想要設定視窗為最大，但似乎沒有作用
+    // ShowWindow(GetForegroundWindow(),SW_MAXIMIZE);
+
+    // set console title設定視窗的名字顯示
     // string title = "Kiki123";
 	// SetConsoleTitle((LPCTSTR)title.c_str()); 
     // cout << "Initialed";
 	const CONSOLE_CURSOR_INFO setting = {.dwSize = 1, .bVisible = FALSE};
     // SetConsoleCursorInfo: 設定指定主控台畫面緩衝區之游標的大小和可見性。
 	SetConsoleCursorInfo(GetStdHandle(STD_OUTPUT_HANDLE), &setting);
+}
+
+// 檢查位置有沒有在遊戲畫面範圍內
+bool is_in(double x, double y, int x_rRange = X_rRANGE, int y_dRange = Y_dRANGE, int x_lRange = X_lRANGE, int y_uRange = Y_uRANGE){
+    if ((x >= x_lRange && x <= x_rRange) && (y >= y_uRange && y <= y_dRange)) return true;
+    else return false;
 }
 
 class character {
@@ -120,7 +137,7 @@ public:
         update_status();
         locate(x, y);
         // Sleep(100);
-        print();
+        // print();
     }
     void increase_velocity() {
         // bug點: 如果在拋物線頂端，速度也是0，這樣如果你剛好按下跳躍鍵，就會變成踏空跳躍(如果將加速度或速度設成非倍數關係或許可以規避)
@@ -237,7 +254,7 @@ public:
         cnt--;
     }
     // 照抄遊戲人物的外觀(所以之後要以顏色區分)
-    void clean() {
+    void clean() { // 先暫時不改(懶)
         locate(x-1, y-2);
         cout << " ";
         locate(x-2, y-1);
@@ -246,12 +263,34 @@ public:
         cout << "  ";
     }
     void print() {
-        locate(x-1, y-2);
-        cout << "O";
-        locate(x-2, y-1);
-        cout << "/||\\";
-        locate(x-1, y);
-        cout << "/\\";
+        if (is_in(x-1,y-2)) {
+            locate(x-1, y-2);
+            cout << "O";
+        }
+        if (is_in(x-2,y-1)) {
+            locate(x-2, y-1);
+            cout << "/";
+        }
+        if (is_in(x-1,y-1)) {
+            locate(x-1, y-1);
+            cout << "|";
+        }
+        if (is_in(x,y-1)) {
+            locate(x, y-1);
+            cout << "|";
+        }
+        if (is_in(x+1,y-1)) {
+            locate(x+1, y-1);
+            cout << "\\";
+        }
+        if (is_in(x-1,y)) {
+            locate(x-1, y);
+            cout << "/";
+        }
+        if (is_in(x,y)) {
+            locate(x, y);
+            cout << "\\";
+        }
     }
     void move() {
         clean();
@@ -290,7 +329,7 @@ public:
             // if (x > X_rRANGE) clean(); // 假裝它沒了
             // else 
             x += speed;
-            print();
+            // print();
         }
         if (!direction && x >= X_lRANGE) { // 左邊
             // if (x < X_lRANGE) clean(); // 假裝它沒了
@@ -316,12 +355,13 @@ void character_stair_interaction(list<stair*> &STAIRS, character &person) {
                 person.velocity = 0;
                 person.clean();
                 person.y = s->y-1;
+                // 下面這兩行必須寫在這裡，不然人物在stair上彈跳的效果會變成踏在空氣上彈跳
                 locate(person.x, person.y);
                 person.print();
                 if (person.health<HEALTH) person.health++;
             }
         }
-        s->print();
+        // s->print();
     }
 }
 
@@ -335,7 +375,7 @@ void character_enermy_interaction(list<enermy*> &ENERMY, character &person) {
             p->harmful = 0;
         }
         if (p->harmful<HARMFUL) p->harmful++;
-        p->move();
+        // p->move();
     }
 }
 
@@ -367,11 +407,11 @@ void shoot(list<bullet*> &available, list<bullet*> &busy, character &person) {
     }
 }
 
-void bullet_move(list<bullet*> &busy){
-    for (auto &b : busy) {
-        b->move();
-    }
-}
+// void bullet_move(list<bullet*> &busy){
+//     for (auto &b : busy) {
+//         b->move();
+//     }
+// }
 
 // 處理敵人被子彈打死的情況
 // 注意你設定的射出去的子彈是被歸類在不能再發射的子彈的list中，小心勿放反
@@ -423,12 +463,71 @@ void clean_screen(int x_rRange = X_rRANGE, int y_dRange = Y_dRANGE, int x_lRange
     }
 }
 
+// 印出遊戲戰場範圍 (跟clean_screen並不是完全配套，這邊畫的外框比clean_screen的範圍還要外面)
+void print_edge(int x_rRange = X_rRANGE, int y_dRange = Y_dRANGE, int x_lRange = X_lRANGE, int y_uRange = Y_uRANGE){
+    for (int i=x_lRange-3;i<=x_rRange+2;i++) {
+        locate(i,y_uRange-3);
+        cout << "=";
+        locate(i,y_dRange+1);
+        cout << "=";
+    }
+    for (int i=y_uRange-3;i<=y_dRange+1;i++) {
+        locate(x_lRange-3,i);
+        cout << "|";
+        locate(x_rRange+2,i);
+        cout << "|";
+    }
+}
+
+// 實作出捲動遊戲畫面的效果(其實就是相對運動，將所有物件的y座標增加(增加就是往下移))
+void scroll_screen(list<enermy*> &living, list<bullet*> &active, list<stair*> &STAIR, character &person){
+    // 如果遊戲人物他並非處在跳躍狀態，且他所在的高度達到了某個閾值，那麼就捲動畫面
+    if (person.velocity==0 && person.y < SCROLL_THRESHOLD) {
+        person.clean();
+        person.y += SCROLL_SPEED;
+        person.print();
+        for (enermy* e : living) {
+            e->clean();
+            e->y += SCROLL_SPEED;
+            e->move();
+            // e->print();
+        }
+        for (stair* s : STAIR) {
+            s->clean();
+            s->y += SCROLL_SPEED;
+            s->print();
+        }
+        for (bullet* b : active) {
+            b->clean();
+            b->y += SCROLL_SPEED;
+            b->move();
+            // b->print();
+        }
+    }
+    else {
+        person.print();
+        for (enermy* e : living) {
+            e->move();
+            // e->print();
+        }
+        for (stair* s : STAIR) {
+            s->print();
+        }
+        for (bullet* b : active) {
+            b->move();
+            // b->print();
+        }
+    }
+}
+
+
 // to do list:
 // 改變顏色
 // 一些其他美觀和guide、血條、積分等等的設定
 // 爬上樓要捲動畫面
 // 捲動上去的話可以獲得子彈數量，上限暫定10
-// 子彈可以攻擊敵人，殺掉敵人可以獲得積分
+// O 子彈可以攻擊敵人
+// 殺掉敵人可以獲得積分
 // O 如何隨機分配敵人在部分stair上
 // O 敵人撞到你，你要扣血
 // 被敵人撞到，你要閃紅表示受傷，血條也要閃
@@ -438,3 +537,7 @@ void clean_screen(int x_rRange = X_rRANGE, int y_dRange = Y_dRANGE, int x_lRange
 // 固定.exe打開的視窗大小
 // 為避免變動視窗大小造成螢幕出現殘留的物件影像，要設計flush機制
 // 要注意最後有將所有物件解構/delete
+// 希望能設定視窗大小 [放棄!!!]
+// O 畫出遊戲戰場範圍
+// 處理超出畫面時的物件clean()，因為如果你不處理的話，螢幕顯示出的字元會溢出到別的行列去，你的畫面會漸漸變得可怕
+// 要檢視一遍各個物件的交互作用，尤其是move和print的使用要控管，不然各處都一起用，印出容易有bug
