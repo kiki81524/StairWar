@@ -4,7 +4,6 @@
 #include <ctime> // time_t, difftime, time
 #include <cmath>
 #include <Windows.h>
-// #include <winuser.h> // CreateWindowExA
 #include <list>
 using namespace std;
 
@@ -38,12 +37,6 @@ void locate(double x, double y) {
     SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), position); // 將游標locate到你position指定的位置
 }
 
-// 想改變console視窗大小，但沒有用
-// void change_size(short x, short y) {
-//     COORD size = {.X = x, .Y = y};
-//     SetConsoleScreenBufferSize(GetStdHandle(STD_OUTPUT_HANDLE), size);
-// }
-
 // 待修改，有點希望將它們拆成不同函數
 // 隱藏游標閃爍(否則會出現游標不停在好幾個位置閃爍的視覺效果)
 // win 10終端機上面不知道為什麼就是無法隱藏游標-->要在while(1)中每輪都設隱藏
@@ -76,11 +69,6 @@ public:
     int health;
     // 判斷是否觸地
     bool grounded;
-    // 都有了move的移動"前"判斷，就不需要is_out來移動"後"判斷了
-    // bool is_out() {
-    //     // 這邊設定的5和3是考慮了遊戲角色的形狀做的因應，變動人物印出風格的話需要改這些參數
-    //     if ((x+5 > X_rRANGE || x < X_lRANGE) || (y+3 > Y_dRANGE || y < Y_uRANGE)) return true;
-    // }
 
     // 建構子
     character(): x(0), y(0), speed(1), velocity(0), grounded(true), health(HEALTH) {}
@@ -106,7 +94,7 @@ public:
         cout << "/\\";
     }
     // 嘗試加入jump的支援
-    void move(){//time_t &start_time, time_t now_time) { // bool can_jump
+    void move(){
         short up = 0, down = 0, left = 0, right = 0, jump = 0;
         // 其實以下if只會被進去1次，所以他們不是1就是0，我準備之後改成bool值
         if (GetAsyncKeyState(UP)) up++; // GetAsyncKeyState
@@ -114,14 +102,10 @@ public:
         if (GetAsyncKeyState(LEFT)) left++;
         if (GetAsyncKeyState(RIGHT)) right++;
         if (GetAsyncKeyState(JUMP)) jump++; // 要可以跳才能跳，暫時先放一個佔位TRUE
-        // Sleep(100);
         
         Sleep(UPDATE_INTERVAL); // 如果不加Sleep，按一下鍵會直接跑到邊界去，Sleep數值越小，移動速度越快
         clean();
-        if (( up | down | left | right)!=0) { //
-            // locate(0,0);
-            // cout << up << " " << down << " " << left << " " << right;
-            // clean();
+        if (( up | down | left | right)!=0) { 
             if (x + right*speed > X_rRANGE) x = X_rRANGE;
             else if (x - left*speed < X_lRANGE) x = X_lRANGE;
             else x = x + right*speed - left*speed;
@@ -137,7 +121,6 @@ public:
         // 所以我決定要將x,y改成double了，即使行列只會有整數，但數學計算的時候，還是會涉及小數，最後成像再換成整數
         update_status();
         locate(x, y);
-        // Sleep(100);
         // print();
     }
     void increase_velocity() {
@@ -168,7 +151,7 @@ public:
             // 位移更新(算入速度作用)
             else y = y + velocity;
         }
-        if (y == Y_dRANGE) grounded=true;
+        if (y == Y_dRANGE) grounded = true;
         // else grounded==false;
     }
 
@@ -199,7 +182,7 @@ public:
     void clean() {
         for (int i=0;i<STAIR_LEN;i++) {
             if ((x+i>X_lRANGE) || (x+i<X_rRANGE)) {
-                locate(x+i, y);
+                locate(x+i, y); // 沒有做is_in判斷
                 cout << " ";
             }
         }
@@ -217,7 +200,6 @@ public:
     // void move() {
 
     // }
-
 };
 // 靜態類別成員的初始化只能在外部進行
 int stair::cnt = 0;
@@ -257,7 +239,7 @@ public:
         cnt--;
     }
     // 照抄遊戲人物的外觀(所以之後要以顏色區分)
-    void clean() { // 先暫時不改(懶)
+    void clean() { // 沒有做is_in判斷，先暫時不改(懶)
         locate(x-1, y-2);
         cout << " ";
         locate(x-2, y-1);
@@ -328,15 +310,12 @@ public:
     }
     void move() {
         clean();
-        if (direction && x <= X_rRANGE) { // 右邊
-            // if (x > X_rRANGE) clean(); // 假裝它沒了
-            // else 
+        // 不在範圍內的子但我們只是讓它不顯現(假裝沒有在場上)
+        if (direction && is_in(x,y)) { // 右邊 // x <= X_rRANGE
             x += speed;
             print();
         }
-        if (!direction && x >= X_lRANGE) { // 左邊
-            // if (x < X_lRANGE) clean(); // 假裝它沒了
-            // else 
+        if (!direction && is_in(x,y)) { // 左邊 // x >= X_lRANGE
             x -= speed;
             print();
         }
@@ -410,12 +389,6 @@ void shoot(list<bullet*> &available, list<bullet*> &busy, character &person) {
     }
 }
 
-// void bullet_move(list<bullet*> &busy){
-//     for (auto &b : busy) {
-//         b->move();
-//     }
-// }
-
 // 處理敵人被子彈打死的情況
 // 注意你設定的射出去的子彈是被歸類在不能再發射的子彈的list中，小心勿放反
 void bullet_enermy_interaction(list<enermy*> &living, list<enermy*> &dead, list<bullet*> &active, list<bullet*> &rest) {
@@ -424,16 +397,6 @@ void bullet_enermy_interaction(list<enermy*> &living, list<enermy*> &dead, list<
         it1_next++;
         for (auto it2=active.begin(), it2_next=it2;it2!=active.end();it2=it2_next) { 
             it2_next++;
-            // if (((((*it1)->x)-((*it2)->x) <= 3 && ((*it1)->x)-((*it2)->x) >= 0) || (((*it2)->x)-((*it1)->x) <= 1 && ((*it2)->x)-((*it1)->x) >= -1)) && (((*it1)->y)-((*it2)->y) <= 2)) {
-            //     (*it1)->clean(); // 或許安排成敵人閃爍會比較有感
-            //     (*it2)->clean();
-            //     dead.push_back((*it1)); // 注意，待修改，如果當前已經沒有一樓的蹤影，一樓的守衛或許要永久性地刪除
-            //     rest.push_back((*it2));
-            //     living.erase(it1);
-            //     active.erase(it2);
-            // }
-            // cout << "?";
-            // it1++; it2++;
             if  ((int((*it1)->x) - int((*it2)->x) == 1 && int((*it1)->y) - int((*it2)->y) == 2) || ((*it1)->x - (*it2)->x <= 2 && (*it2)->x - (*it1)->x <= 1 && int((*it1)->y) - int((*it2)->y) == 1) || ((*it1)->x - (*it2)->x <= 1 && (*it2)->x - (*it1)->x <= 0 && int((*it1)->y) == int((*it2)->y))) {
                 (*it1)->clean(); // 或許安排成敵人閃爍會比較有感
                 (*it2)->clean();
@@ -441,18 +404,8 @@ void bullet_enermy_interaction(list<enermy*> &living, list<enermy*> &dead, list<
                 rest.push_back((*it2));
                 living.erase(it1);
                 active.erase(it2);
-                cout << "erase\n";
+                // cout << "erase\n";
             }
-            // else { // 因為erase後，所有後面的iterator會前挪，所以不能自動對每個迴圈做it++，要判斷有沒有刪，沒刪才++ // 但這樣做好像也不行?.exe會當掉退出的樣子，所以我學別人新增了_next指標去吃迭代器
-            //     it1++; it2++; // 不可刪掉包住它們的else的大括號
-            // }
-            
-            // 打到敵人的頭
-            // if ((*it1)->x - (*it2)->x == 1 && (*it1)->y == (*it2)->y)
-            // 打到敵人的身
-            // if ((*it1)->x - (*it2)->x <= 2 && (*it2)->x - (*it1)->x <= 1 && (*it1)->y == (*it2)->y)
-            // 打到敵人的腿
-            // if ((*it1)->x - (*it2)->x <= 1 && (*it2)->x - (*it1)->x <= 0 && (*it1)->y == (*it2)->y)
         }
     }
 }
