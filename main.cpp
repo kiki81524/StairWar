@@ -11,7 +11,6 @@ int main() {
     // change_size(200,100);
     Sleep(1000);
     character wang(15,25);
-    enermy chang;
     stair s1;
     enermy chung(s1);
     // character lee(50,10);
@@ -32,7 +31,7 @@ int main() {
         stairs.push_back(p);
     }
     list<bullet*> a, b;
-    for (int i=0;i<100;i++) {
+    for (int i=0;i<30;i++) {
         bullet* p = new bullet;
         a.push_back(p);
     }

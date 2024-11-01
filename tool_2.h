@@ -29,7 +29,8 @@ using namespace std;
 #define EDGE_ADJUST 5
 #define SCROLL_THRESHOLD (Y_dRANGE-((Y_dRANGE-Y_uRANGE)/2))
 #define SCROLL_SPEED 0.1
-
+int scroll_count = 0; // 紀錄捲動數量，用來給子彈和決定何時不畫地板
+bool show_floor = true;
 
 // 不做函數多載了，統一都是給x,y座標
 void locate(double x, double y) {
@@ -62,7 +63,7 @@ void Initialize() // set console title and hide console cursor
 
 // 檢查位置有沒有在遊戲畫面範圍內
 bool is_in(double x, double y, int x_rRange = X_rRANGE, int y_dRange = Y_dRANGE, int x_lRange = X_lRANGE, int y_uRange = Y_uRANGE){
-    if ((x >= x_lRange && x <= x_rRange) && (y >= y_uRange && y <= y_dRange)) return true;
+    if ((int(x) >= x_lRange && int(x) <= x_rRange) && (int(y) >= y_uRange && int(y) <= y_dRange)) return true;
     else return false;
 }
 
@@ -206,8 +207,10 @@ public:
     void print() {
         for (int i=0;i<STAIR_LEN;i++) {
             if ((x+i>X_lRANGE) || (x+i<X_rRANGE)) {
-                locate(x+i, y);
-                cout << "H"; // █
+                if (is_in(x+i,y)) {
+                    locate(x+i, y);
+                    cout << "H"; // █
+                }
             }
         }
     }
@@ -241,7 +244,7 @@ public:
     enermy(stair &s) { // stair上的敵人，所以要給他stair的資訊，這樣實作起來比較簡單
         time_t random_seed;
         cnt++;
-        srand(time(&random_seed));
+        srand(time(&random_seed) + cnt*97);
         x = s.x + (rand() % STAIR_LEN);
         y = s.y - 1; // 站在stair上所以y要減1
         speed = (rand() % 5)*0.1; // 慢一點
@@ -329,7 +332,7 @@ public:
             // if (x > X_rRANGE) clean(); // 假裝它沒了
             // else 
             x += speed;
-            // print();
+            print();
         }
         if (!direction && x >= X_lRANGE) { // 左邊
             // if (x < X_lRANGE) clean(); // 假裝它沒了
@@ -350,7 +353,7 @@ void character_stair_interaction(list<stair*> &STAIRS, character &person) {
             // 當人物在移動時，有時候速度會太快，所以要提早處理他的grounded性質
             // 已知bug: 當人物站在stair上且頭頂距離天花板只有1格空間時，無法起跳，可能是只要起跳就會馬上被這邊還原成站在stair上的位置
             // 已知bug: 剛好跳到頂端時是在別的stair上，會直接穿過那個stair掉回去
-            if ((int(s->y)-int(person.y)>=1) && s->y - person.y < person.velocity) { // VELOCITY
+            if ((int(s->y)-int(person.y)>=1) && s->y - person.y < VELOCITY) { // VELOCITYperson.velocity
                 person.grounded = true;
                 person.velocity = 0;
                 person.clean();
@@ -469,7 +472,9 @@ void print_edge(int x_rRange = X_rRANGE, int y_dRange = Y_dRANGE, int x_lRange =
         locate(i,y_uRange-3);
         cout << "=";
         locate(i,y_dRange+1);
-        cout << "=";
+        // 如果往上捲動到一定程度，就沒有地板了
+        if (show_floor) cout << "=";
+        else cout << ".";
     }
     for (int i=y_uRange-3;i<=y_dRange+1;i++) {
         locate(x_lRange-3,i);
@@ -483,6 +488,8 @@ void print_edge(int x_rRange = X_rRANGE, int y_dRange = Y_dRANGE, int x_lRange =
 void scroll_screen(list<enermy*> &living, list<bullet*> &active, list<stair*> &STAIR, character &person){
     // 如果遊戲人物他並非處在跳躍狀態，且他所在的高度達到了某個閾值，那麼就捲動畫面
     if (person.velocity==0 && person.y < SCROLL_THRESHOLD) {
+        scroll_count++;
+        if (scroll_count > 15) show_floor = false;
         person.clean();
         person.y += SCROLL_SPEED;
         person.print();
@@ -532,12 +539,12 @@ void scroll_screen(list<enermy*> &living, list<bullet*> &active, list<stair*> &S
 // O 敵人撞到你，你要扣血
 // 被敵人撞到，你要閃紅表示受傷，血條也要閃
 // 殲滅敵人要獲得積分(積分可以幹嘛?我們目標是賺積分還是爬樓?)
-// O殲滅敵人用的子彈
+// O 殲滅敵人用的子彈
 // 我想使用中文字，可能要改編碼?
-// 固定.exe打開的視窗大小
+// X 固定.exe打開的視窗大小
 // 為避免變動視窗大小造成螢幕出現殘留的物件影像，要設計flush機制
 // 要注意最後有將所有物件解構/delete
-// 希望能設定視窗大小 [放棄!!!]
+// X 希望能設定視窗大小 [放棄!!!]
 // O 畫出遊戲戰場範圍
-// 處理超出畫面時的物件clean()，因為如果你不處理的話，螢幕顯示出的字元會溢出到別的行列去，你的畫面會漸漸變得可怕
+// O 處理超出畫面時的物件clean()，因為如果你不處理的話，螢幕顯示出的字元會溢出到別的行列去，你的畫面會漸漸變得可怕
 // 要檢視一遍各個物件的交互作用，尤其是move和print的使用要控管，不然各處都一起用，印出容易有bug
