@@ -19,7 +19,7 @@ int main() {
     // character lee(50,10);
     // 建立樓梯物件
     list<stair*> stairs;
-    list<enermy*> enermies;
+    list<enermy*> enermies, dead;
     enermy* first_floor = new enermy();
     enermies.push_back(first_floor);
     for (int i=0;i<10;i++) {
@@ -34,12 +34,13 @@ int main() {
         stairs.push_back(p);
     }
     list<bullet*> a, b;
-    for (int i=0;i<40;i++) {
+    for (int i=0;i<100;i++) {
         bullet* p = new bullet;
         a.push_back(p);
     }
     wang.print();
-    Sleep(1000);
+    Sleep(2000);
+    clean_screen();
     while (1) {
         Initialize();
         if (GetAsyncKeyState(VK_ESCAPE)) break;
@@ -52,6 +53,7 @@ int main() {
         character_enermy_interaction(enermies,wang);
         shoot(a,b,wang);
         bullet_move(b);
+        bullet_enermy_interaction(enermies,dead,b,a);
         locate(X_rRANGE+6, Y_uRANGE+10);
         cout << "blood: " << wang.health;
         // for (int i=0;i<wang.health;i++) {

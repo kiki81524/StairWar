@@ -13,10 +13,10 @@ using namespace std;
 #define RIGHT VK_RIGHT // VK_RIGHT/0x27
 #define JUMP VK_SPACE
 #define KEY_BOARD_SPEED 1
-#define X_lRANGE 3
-#define X_rRANGE 143
-#define Y_uRANGE 3 // 到頂不知道為什麼，print會有殘影->因為你第一行print了別的數字
-#define Y_dRANGE 38
+#define X_lRANGE 2
+#define X_rRANGE 137
+#define Y_uRANGE 2 // 到頂不知道為什麼，print會有殘影->因為你第一行print了別的數字
+#define Y_dRANGE 42
 #define UPDATE_INTERVAL 25
 #define GRAVITY 0.16 // 定義跳躍用的重力加速度大小
 #define VELOCITY 2.1 // 跳躍的初速度(v_0) // v_0 = g*t可以算到最頂端的所需的時間->v_0*t-g*t*t = 0
@@ -25,6 +25,7 @@ using namespace std;
 #define HARMFUL 20
 #define BULLET_SPEED 0.3
 #define COOL_TIME 2 // 子彈發射的冷卻期
+#define EDGE_ADJUST 5
 
 
 
@@ -162,12 +163,13 @@ public:
     // 雖然隨機分配給x, y的會是整數，但為了後續位移的操作，還是設成double
     double x, y;
 
+    // 已知bug: 隨機生成的stair很近的話，且又有敵人在stair上，會看到很詭異的敵人穿牆運動
     stair() {
         time_t random_seed;
         cnt++;
-        srand(time(&random_seed) + cnt*7);
-        x = (rand() % (X_rRANGE-X_lRANGE)) + X_lRANGE; // 如果stair超出畫面就不要print出來
-        y = (rand() % (Y_dRANGE-Y_uRANGE)) + Y_uRANGE;
+        srand(time(&random_seed) + cnt*97);
+        x = (rand() % (X_rRANGE-X_lRANGE-EDGE_ADJUST)) + X_lRANGE + EDGE_ADJUST; // 如果stair超出畫面就不要print出來?
+        y = (rand() % (Y_dRANGE-Y_uRANGE-EDGE_ADJUST)) + Y_uRANGE + EDGE_ADJUST; // 有些stair會生成在邊緣，enermy站上去會被分屍
         print();
     }
     ~stair() {
@@ -308,7 +310,8 @@ void character_stair_interaction(list<stair*> &STAIRS, character &person) {
             // 如果不將s->和person.y取整後做比較，就很難符合剛好差1的情況，因為小數點不同的機會佔絕大多數
             // 當人物在移動時，有時候速度會太快，所以要提早處理他的grounded性質
             // 已知bug: 當人物站在stair上且頭頂距離天花板只有1格空間時，無法起跳，可能是只要起跳就會馬上被這邊還原成站在stair上的位置
-            if ((int(s->y)-int(person.y)>=1) && s->y - person.y < VELOCITY) {
+            // 已知bug: 剛好跳到頂端時是在別的stair上，會直接穿過那個stair掉回去
+            if ((int(s->y)-int(person.y)>=1) && s->y - person.y < person.velocity) { // VELOCITY
                 person.grounded = true;
                 person.velocity = 0;
                 person.clean();
@@ -324,6 +327,8 @@ void character_stair_interaction(list<stair*> &STAIRS, character &person) {
 
 // 處理人物遇到敵人被扣血的狀況，harmful值是敵人傷害你一次需要回復攻擊力的時間，越高表示越不具傷害性
 void character_enermy_interaction(list<enermy*> &ENERMY, character &person) {
+    locate(0,0);
+    cout << ENERMY.size();
     for (auto p : ENERMY) {
         if ((abs(p->x-person.x)<=3) && (abs(p->y-person.y)<=3) && p->harmful == HARMFUL) {
             person.health--;
@@ -334,6 +339,7 @@ void character_enermy_interaction(list<enermy*> &ENERMY, character &person) {
     }
 }
 
+// 已知bug: 發射子彈鍵設成a和s，輸入法預設是中文的情況下，子彈後方會有注音符號的殘影閃爍
 void shoot(list<bullet*> &available, list<bullet*> &busy, character &person) {
     // while (1)太快，你這邊會一次射出好多顆子彈，要想辦法限制瞬發數量
     if (GetAsyncKeyState(0x41) || GetAsyncKeyState(0x53)) { // A / S
@@ -367,12 +373,68 @@ void bullet_move(list<bullet*> &busy){
     }
 }
 
+// 處理敵人被子彈打死的情況
+// 注意你設定的射出去的子彈是被歸類在不能再發射的子彈的list中，小心勿放反
+void bullet_enermy_interaction(list<enermy*> &living, list<enermy*> &dead, list<bullet*> &active, list<bullet*> &rest) {
+    // 使用iter_next避免for loop中erase迭代器的bug
+    for (auto it1=living.begin(), it1_next=it1;it1!=living.end();it1=it1_next) { // 如果變數取跟類別一樣的名字可以嗎?
+        it1_next++;
+        for (auto it2=active.begin(), it2_next=it2;it2!=active.end();it2=it2_next) { 
+            it2_next++;
+            // if (((((*it1)->x)-((*it2)->x) <= 3 && ((*it1)->x)-((*it2)->x) >= 0) || (((*it2)->x)-((*it1)->x) <= 1 && ((*it2)->x)-((*it1)->x) >= -1)) && (((*it1)->y)-((*it2)->y) <= 2)) {
+            //     (*it1)->clean(); // 或許安排成敵人閃爍會比較有感
+            //     (*it2)->clean();
+            //     dead.push_back((*it1)); // 注意，待修改，如果當前已經沒有一樓的蹤影，一樓的守衛或許要永久性地刪除
+            //     rest.push_back((*it2));
+            //     living.erase(it1);
+            //     active.erase(it2);
+            // }
+            // cout << "?";
+            // it1++; it2++;
+            if  ((int((*it1)->x) - int((*it2)->x) == 1 && int((*it1)->y) - int((*it2)->y) == 2) || ((*it1)->x - (*it2)->x <= 2 && (*it2)->x - (*it1)->x <= 1 && int((*it1)->y) - int((*it2)->y) == 1) || ((*it1)->x - (*it2)->x <= 1 && (*it2)->x - (*it1)->x <= 0 && int((*it1)->y) == int((*it2)->y))) {
+                (*it1)->clean(); // 或許安排成敵人閃爍會比較有感
+                (*it2)->clean();
+                dead.push_back((*it1)); // 注意，待修改，如果當前已經沒有一樓的蹤影，一樓的守衛或許要永久性地刪除
+                rest.push_back((*it2));
+                living.erase(it1);
+                active.erase(it2);
+                cout << "erase\n";
+            }
+            // else { // 因為erase後，所有後面的iterator會前挪，所以不能自動對每個迴圈做it++，要判斷有沒有刪，沒刪才++ // 但這樣做好像也不行?.exe會當掉退出的樣子，所以我學別人新增了_next指標去吃迭代器
+            //     it1++; it2++; // 不可刪掉包住它們的else的大括號
+            // }
+            
+            // 打到敵人的頭
+            // if ((*it1)->x - (*it2)->x == 1 && (*it1)->y == (*it2)->y)
+            // 打到敵人的身
+            // if ((*it1)->x - (*it2)->x <= 2 && (*it2)->x - (*it1)->x <= 1 && (*it1)->y == (*it2)->y)
+            // 打到敵人的腿
+            // if ((*it1)->x - (*it2)->x <= 1 && (*it2)->x - (*it1)->x <= 0 && (*it1)->y == (*it2)->y)
+        }
+    }
+}
+
+void clean_screen(int x_rRange = X_rRANGE, int y_dRange = Y_dRANGE, int x_lRange = X_lRANGE, int y_uRange = Y_uRANGE) {
+    for (int i=x_lRange;i<=x_rRange;i++) {
+        for (int j=y_uRange;j<=y_dRange;j++) {
+            locate(i,j);
+            cout << " ";
+        }
+    }
+}
+
 // to do list:
 // 改變顏色
 // 一些其他美觀和guide、血條、積分等等的設定
 // 爬上樓要捲動畫面
+// 捲動上去的話可以獲得子彈數量，上限暫定10
+// 子彈可以攻擊敵人，殺掉敵人可以獲得積分
 // O 如何隨機分配敵人在部分stair上
-// O 敵人撞到你要扣血
+// O 敵人撞到你，你要扣血
+// 被敵人撞到，你要閃紅表示受傷，血條也要閃
 // 殲滅敵人要獲得積分(積分可以幹嘛?我們目標是賺積分還是爬樓?)
 // O殲滅敵人用的子彈
 // 我想使用中文字，可能要改編碼?
+// 固定.exe打開的視窗大小
+// 為避免變動視窗大小造成螢幕出現殘留的物件影像，要設計flush機制
+// 要注意最後有將所有物件解構/delete
