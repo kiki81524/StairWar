@@ -32,6 +32,7 @@ using namespace std;
 #define STAIR_NUM 15
 #define ENERMY_NUM 10
 #define BULLET_NUM 20
+#define BULLET_INITIAL_NUM 10
 #define AWARD_THRESHOLD 30
 int scroll_count = 0; // 紀錄捲動數量，用來給子彈和決定何時不畫地板
 bool show_floor = true;
@@ -192,20 +193,22 @@ public:
 
     void clean() {
         for (int i=0;i<STAIR_LEN;i++) {
-            if ((x+i>X_lRANGE) || (x+i<X_rRANGE)) {
+            // if ((x+i>X_lRANGE) || (x+i<X_rRANGE)) {
+            if (is_in(x+i,y)) { //11/3待解決
                 locate(x+i, y); // 沒有做is_in判斷
                 cout << " ";
             }
+            // }
         }
     }
     void print() {
         for (int i=0;i<STAIR_LEN;i++) {
-            if ((x+i>X_lRANGE) || (x+i<X_rRANGE)) {
-                if (is_in(x+i,y)) {
-                    locate(x+i, y);
-                    cout << "H"; // █
-                }
+            // if ((x+i>X_lRANGE) || (x+i<X_rRANGE)) {
+            if (is_in(x+i,y)) {
+                locate(x+i, y);
+                cout << "H"; // █
             }
+            // }
         }
     }
     // void move() {
@@ -384,14 +387,14 @@ void character_enermy_interaction(list<enermy*> &ENERMY, character &person) {
 }
 
 // 已知bug: 發射子彈鍵設成a和s，輸入法預設是中文的情況下，子彈後方會有注音符號的殘影閃爍
-void shoot(list<bullet*> &available, list<bullet*> &busy, character &person) {
+void shoot(list<bullet*> &bullet_in_gun, list<bullet*> &bullet_in_field, character &person) {
     // while (1)太快，你這邊會一次射出好多顆子彈，要想辦法限制瞬發數量
     if (GetAsyncKeyState(0x41) || GetAsyncKeyState(0x53)) { // A / S
-        if (!available.empty()) {
-            bullet* p = available.front();
+        if (!bullet_in_gun.empty()) {
+            bullet* p = bullet_in_gun.front();
             if (p->cool_time==COOL_TIME) {
                 p->cool_time = 0;
-                available.pop_front();
+                bullet_in_gun.pop_front();
                 if (GetAsyncKeyState(0x53)) { // 右邊發子彈
                     p->x = person.x+2;
                     p->y = person.y-1;
@@ -402,7 +405,7 @@ void shoot(list<bullet*> &available, list<bullet*> &busy, character &person) {
                     p->y = person.y-1;
                     p->direction = false;
                 }
-                busy.push_back(p);
+                bullet_in_field.push_back(p);
             }
             else {
                 p->cool_time++;
@@ -413,19 +416,19 @@ void shoot(list<bullet*> &available, list<bullet*> &busy, character &person) {
 
 // 處理敵人被子彈打死的情況
 // 注意你設定的射出去的子彈是被歸類在不能再發射的子彈的list中，小心勿放反
-void bullet_enermy_interaction(list<enermy*> &living, list<enermy*> &dead, list<bullet*> &active, list<bullet*> &rest) {
+void bullet_enermy_interaction(list<enermy*> &living, list<enermy*> &dead, list<bullet*> &bullet_in_field, list<bullet*> &bullet_pool) {
     // 使用iter_next避免for loop中erase迭代器的bug
     for (auto it1=living.begin(), it1_next=it1;it1!=living.end();it1=it1_next) { // 如果變數取跟類別一樣的名字可以嗎?
         it1_next++;
-        for (auto it2=active.begin(), it2_next=it2;it2!=active.end();it2=it2_next) { 
+        for (auto it2=bullet_in_field.begin(), it2_next=it2;it2!=bullet_in_field.end();it2=it2_next) { 
             it2_next++;
             if  ((int((*it1)->x) - int((*it2)->x) == 1 && int((*it1)->y) - int((*it2)->y) == 2) || ((*it1)->x - (*it2)->x <= 2 && (*it2)->x - (*it1)->x <= 1 && int((*it1)->y) - int((*it2)->y) == 1) || ((*it1)->x - (*it2)->x <= 1 && (*it2)->x - (*it1)->x <= 0 && int((*it1)->y) == int((*it2)->y))) {
                 (*it1)->clean(); // 或許安排成敵人閃爍會比較有感
                 (*it2)->clean();
                 dead.push_back((*it1)); // 注意，待修改，如果當前已經沒有一樓的蹤影，一樓的守衛或許要永久性地刪除
-                rest.push_back((*it2));
+                bullet_pool.push_back((*it2));
                 living.erase(it1);
-                active.erase(it2);
+                bullet_in_field.erase(it2);
                 // cout << "erase\n";
             }
         }
@@ -459,18 +462,23 @@ void print_edge(int x_rRange = X_rRANGE, int y_dRange = Y_dRANGE, int x_lRange =
     }
 }
 
-void bullet_award(list<bullet*> &bullet_in_gun, list<bullet*> &bullet_in_field, list<bullet*> &hide){
+void bullet_award(list<bullet*> &bullet_in_gun, list<bullet*> &bullet_in_field, list<bullet*> &bullet_pool){
     // 上升到一定程度時給予子彈獎勵(暫時不設計子彈補充包)
     if (scroll_count > AWARD_THRESHOLD) {
         scroll_count = 0;
         if (bullet_in_gun.size() < BULLET_NUM) {
-            if (!hide.empty()) {
-                bullet* b = hide.front();
-                hide.pop_front();
+            // 如果這個pool有東西
+            if (!bullet_pool.empty()) {
+                bullet* b = bullet_pool.front();
+                bullet_pool.pop_front();
                 b->cool_time = 0;
                 bullet_in_gun.push_back(b);
             }
-            // else 如果hide這個pool裡面的子彈物件量不夠的話，就製造新的子彈物件
+            // 如果這個pool裡面的子彈物件量不夠的話，就製造新的子彈物件
+            else {
+                bullet* p = new bullet;
+                bullet_in_gun.push_back(p);
+            }
         }
     }
 }
@@ -537,10 +545,21 @@ void initialize_stairs_and_enermies(list<stair*> &stairs, list<enermy*> &enermie
     }
 }
 
-void initialize_potential_bullet(list<bullet*> &bullet_out_of_gun){
-    for (int i=0;i<BULLET_NUM;i++) {
+void initialize_potential_bullet(list<bullet*> &bullet_in_gun){
+    for (int i=0;i<BULLET_INITIAL_NUM;i++) {
         bullet* p = new bullet;
-        bullet_out_of_gun.push_back(p);
+        bullet_in_gun.push_back(p);
+    }
+}
+// 有bug，就是出界後場上留下子彈殘影
+void bullet_reuse(list<bullet*> &bullet_in_field, list<bullet*> &bullet_pool){
+    for (auto it=bullet_in_field.begin(), it_next=it;it!=bullet_in_field.end();it=it_next) {
+        it_next++;
+        if (!is_in((*it)->x,(*it)->y)) {
+            bullet_pool.push_back(*it);
+            (*it)->clean();
+            bullet_in_field.erase(it);
+        }
     }
 }
 
@@ -550,7 +569,7 @@ void Game_Start() {
     // 建立樓梯物件
     list<stair*> stairs, block; // stairs是在遊戲介面中的stair，block則是不在遊戲介面中的stair(待命中)
     list<enermy*> enermies, dead; // enermies: 遊戲介面中/ dead: 待命中
-    list<bullet*> bullet_in_gun, bullet_out_of_gun; //  bullet_in_field: 遊戲介面中/ bullet_in_gun: 待命中
+    list<bullet*> bullet_in_gun, bullet_in_field, bullet_pool; //  bullet_in_field: 遊戲介面中/ bullet_in_gun: 待命中
     initialize_stairs_and_enermies(stairs, enermies);
     
     // enermy* first_floor = new enermy();
@@ -566,7 +585,7 @@ void Game_Start() {
     //     // 可以在生成stair時順便決定要不要生成敵人，這樣可以隨機分配部分stair上有敵人
     //     stairs.push_back(p);
     // }
-    initialize_potential_bullet(bullet_out_of_gun);
+    initialize_potential_bullet(bullet_in_gun);
     // for (int i=0;i<BULLET_NUM;i++) {
     //     bullet* p = new bullet;
     //     bullet_in_gun.push_back(p);
@@ -574,7 +593,7 @@ void Game_Start() {
     // player.print();
     cout << "wait a minute...";
     Sleep(2000);
-    clean_screen(150,50,0,0);
+    clean_screen(200,60,0,0);
     // 以下尚未整理好
     while (1) {
         Initialize();
@@ -585,12 +604,20 @@ void Game_Start() {
         // chang.move();
         // chung.move();
         player.move();
-        scroll_screen(enermies,bullet_out_of_gun,stairs,player);
+        scroll_screen(enermies,bullet_in_field,stairs,player);
         character_stair_interaction(stairs,player);
         character_enermy_interaction(enermies,player);
-        shoot(bullet_in_gun,bullet_out_of_gun,player);
+        shoot(bullet_in_gun,bullet_in_field,player);
         // bullet_move(b);
-        bullet_enermy_interaction(enermies,dead,bullet_out_of_gun,bullet_in_gun);
+        bullet_enermy_interaction(enermies,dead,bullet_in_field,bullet_pool);
+        bullet_reuse(bullet_in_field, bullet_pool);
+        bullet_award(bullet_in_gun, bullet_in_field, bullet_pool);
+        locate(X_rRANGE+6, Y_uRANGE+12);
+        cout << "gun: " << bullet_in_gun.size();
+        locate(X_rRANGE+6, Y_uRANGE+14);
+        cout << "field: " << bullet_in_field.size();
+        locate(X_rRANGE+6, Y_uRANGE+16);
+        cout << "bullet_pool: " << bullet_pool.size();
         locate(X_rRANGE+6, Y_uRANGE+10);
         cout << "blood: " << player.health;
         // for (int i=0;i<wang.health;i++) {

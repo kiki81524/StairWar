@@ -9,7 +9,7 @@ int main() {
     Initialize();
     // change_size(200,100);
     Sleep(1000);
-
+    Game_Start();
     Sleep(1000);
     cout << "Bye";//✲ ✳ ✴ ✵ ✶ ✷ ✸ ";
     Sleep(1000);
