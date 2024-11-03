@@ -29,8 +29,8 @@ using namespace std;
 #define SCROLL_THRESHOLD (Y_dRANGE-((Y_dRANGE-Y_uRANGE)/2))
 #define SCROLL_SPEED 0.1
 #define PROBABILITY 5 //機率會是 (3/PROBABILITY)
-#define STAIR_NUM 15
-#define ENERMY_NUM 10
+#define STAIR_NUM 35
+#define ENERMY_NUM 25
 #define BULLET_NUM 20
 #define BULLET_INITIAL_NUM 10
 #define AWARD_THRESHOLD 30
@@ -175,21 +175,25 @@ public:
     stair() {
         cnt++;
         // 直接把下面的code獨立出去，然後在這邊複用
-        change_info();
-        print();
+        // 超出上方界線的地方的stair是捲動時要待命的
+        change_info(Y_uRANGE-Y_dRANGE, Y_dRANGE-EDGE_ADJUST);
+        // print();
     }
     ~stair() {
         clean();
-        cout << "stairs destructor!\n";
+        cout << "stair destruct\n";
         Sleep(100);
         cnt--;
     }
 
-    void change_info() {
+    // 為了讓捲動後會出來的stair物件stand by，要在捲動前就在上方待命
+    // 所以change_info這樣改寫比較有通用性
+    // 順便也把控制stair初始高度的權柄交給寫code的人
+    void change_info(int y_uRange = Y_uRANGE, int y_dRange = Y_dRANGE) {
         time_t random_seed;
-        srand(time(&random_seed) + cnt*97);
-        x = (rand() % (X_rRANGE-X_lRANGE-EDGE_ADJUST)) + X_lRANGE + EDGE_ADJUST; // 如果stair超出畫面就不要print出來?
-        y = (rand() % (Y_dRANGE-Y_uRANGE-EDGE_ADJUST)) + Y_uRANGE + EDGE_ADJUST; // 有些stair會生成在邊緣，enermy站上去會被分屍
+        srand(time(&random_seed) + cnt*3539); // 假亂數，只好抓一個質數3539來降低亂數的pattern感
+        x = (rand() % (X_rRANGE-X_lRANGE)) + X_lRANGE;
+        y = (rand() % (y_dRange-y_uRange)) + y_uRange;
     }
 
     void clean() {
@@ -237,7 +241,7 @@ public:
         // 因為enermy是以右腳為基準點，如果不想讓手出界，就要限制好邊界
         left = X_lRANGE+2; right = X_rRANGE-1;
         harmful = HARMFUL;
-        print();
+        // print();
     }
     enermy(stair &s) { // stair上的敵人，所以要給他stair的資訊，這樣實作起來比較簡單
         cnt++;
@@ -250,7 +254,7 @@ public:
         // left = s.x; right = s.x + STAIR_LEN;
         // harmful = HARMFUL;
         change_info(s);
-        print();
+        // print();
     }
     ~enermy() {
         clean();
@@ -552,6 +556,23 @@ void scroll_screen(list<enermy*> &living, list<bullet*> &active, list<stair*> &S
         }
     }
 }
+
+// void standby_stairs_and_enermies(list<stair*> &stairs, list<enermy*> &enermies) {
+//     for (stair* s : stairs) {
+//         s->change_info();
+//     }
+//     for (int i=0;i<stairs.size();i++) {
+//         time_t random_seed;
+//         srand(time(&random_seed));
+//         stair* p = new stair();
+//         if (rand() % PROBABILITY < 3 && enermies.size() < ENERMY_NUM) {
+//             enermy* e = new enermy(*p);
+//             enermies.push_back(e);
+//         }
+//         // 可以在生成stair時順便決定要不要生成敵人，這樣可以隨機分配部分stair上有敵人
+//         stairs.push_back(p);
+//     }
+// }
 
 void initialize_stairs_and_enermies(list<stair*> &stairs, list<enermy*> &enermies){
     enermy* first_floor = new enermy();
