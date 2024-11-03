@@ -112,12 +112,13 @@ public:
         Sleep(UPDATE_INTERVAL); // 如果不加Sleep，按一下鍵會直接跑到邊界去，Sleep數值越小，移動速度越快
         clean();
         if (( up | down | left | right)!=0) { 
-            if (x + right*speed > X_rRANGE) x = X_rRANGE;
-            else if (x - left*speed < X_lRANGE) x = X_lRANGE;
+            // 因為是以右腳為定位點，避免操作時人物超出遊戲介面，需要微調範圍限制
+            if (x + right*speed > X_rRANGE-1) x = X_rRANGE-1;
+            else if (x - left*speed < X_lRANGE+2) x = X_lRANGE+2;
             else x = x + right*speed - left*speed;
 
             if (y + down*speed > Y_dRANGE) y= Y_dRANGE;
-            else if (y - up*speed < Y_uRANGE) y = Y_uRANGE;
+            else if (y - up*speed < Y_uRANGE+2) y = Y_uRANGE+2;
             else y = y + down*speed - up*speed;
         }
         if (jump!=0) {
@@ -194,8 +195,8 @@ public:
     void clean() {
         for (int i=0;i<STAIR_LEN;i++) {
             // if ((x+i>X_lRANGE) || (x+i<X_rRANGE)) {
-            if (is_in(x+i,y)) { //11/3待解決
-                locate(x+i, y); // 沒有做is_in判斷
+            if (is_in(x+i,y)) { //11/3已解決
+                locate(x+i, y);
                 cout << " ";
             }
             // }
@@ -233,7 +234,8 @@ public:
         x = (rand() % (X_rRANGE-X_lRANGE)) + X_lRANGE;
         y = Y_dRANGE;
         speed = (rand() % 10)*0.1; //(rand() % 3) + 
-        left = X_lRANGE; right = X_rRANGE;
+        // 因為enermy是以右腳為基準點，如果不想讓手出界，就要限制好邊界
+        left = X_lRANGE+2; right = X_rRANGE-1;
         harmful = HARMFUL;
         print();
     }
@@ -260,17 +262,39 @@ public:
         x = s.x + (rand() % STAIR_LEN);
         y = s.y - 1; // 站在stair上所以y要減1
         speed = (rand() % 5)*0.1; // 慢一點
-        left = s.x; right = s.x + STAIR_LEN;
+        left = s.x; right = s.x + STAIR_LEN+1;
         harmful = HARMFUL;
     }
     // 照抄遊戲人物的外觀(所以之後要以顏色區分)
-    void clean() { // 沒有做is_in判斷，先暫時不改(懶)
-        locate(x-1, y-2);
-        cout << " ";
-        locate(x-2, y-1);
-        cout << "    ";
-        locate(x-1, y);
-        cout << "  ";
+    void clean() {
+        if (is_in(x-1,y-2)) {
+            locate(x-1, y-2);
+            cout << " ";
+        }
+        if (is_in(x-2,y-1)) {
+            locate(x-2, y-1);
+            cout << " ";
+        }
+        if (is_in(x-1,y-1)) {
+            locate(x-1, y-1);
+            cout << " ";
+        }
+        if (is_in(x,y-1)) {
+            locate(x, y-1);
+            cout << " ";
+        }
+        if (is_in(x+1,y-1)) {
+            locate(x+1, y-1);
+            cout << " ";
+        }
+        if (is_in(x-1,y)) {
+            locate(x-1, y);
+            cout << " ";
+        }
+        if (is_in(x,y)) {
+            locate(x, y);
+            cout << " ";
+        }
     }
     void print() {
         if (is_in(x-1,y-2)) {
@@ -304,15 +328,15 @@ public:
     }
     void move() {
         clean();
-        if (x <= left) {
+        x = x + speed; // 要寫在if之前
+        if (x < left) {
             x = left;
             speed = -speed; // (換方向走)
         }
-        if (x >= right) {
+        if (x > right) {
             x = right;
             speed = -speed; // (換方向走)
         }
-        x = x + speed;
         print();
     }
 };
@@ -335,15 +359,15 @@ public:
     }
     void move() {
         clean();
-        // 不在範圍內的子但我們只是讓它不顯現(假裝沒有在場上)
-        if (direction && is_in(x,y)) { // 右邊 // x <= X_rRANGE
+        // 不在範圍內的子彈我們讓它不顯現，超出場的子彈回收到子彈pool的機制交給別的函數處理
+        // 判斷完is_in之後又對判斷過的x,y做修改肯定會有bug，要修正
+        if (direction) { // 右邊 // x <= X_rRANGE
             x += speed;
-            print();
         }
-        if (!direction && is_in(x,y)) { // 左邊 // x >= X_lRANGE
+        if (!direction) { // 左邊 // x >= X_lRANGE
             x -= speed;
-            print();
         }
+        if (is_in(x,y)) print();
     }
 };
 
@@ -446,18 +470,18 @@ void clean_screen(int x_rRange = X_rRANGE, int y_dRange = Y_dRANGE, int x_lRange
 
 // 印出遊戲戰場範圍 (跟clean_screen並不是完全配套，這邊畫的外框比clean_screen的範圍還要外面)
 void print_edge(int x_rRange = X_rRANGE, int y_dRange = Y_dRANGE, int x_lRange = X_lRANGE, int y_uRange = Y_uRANGE){
-    for (int i=x_lRange-3;i<=x_rRange+2;i++) {
-        locate(i,y_uRange-3);
+    for (int i=x_lRange;i<=x_rRange;i++) {
+        locate(i,y_uRange-1);
         cout << "=";
         locate(i,y_dRange+1);
         // 如果往上捲動到一定程度，就沒有地板了
         if (show_floor) cout << "=";
         else cout << ".";
     }
-    for (int i=y_uRange-3;i<=y_dRange+1;i++) {
-        locate(x_lRange-3,i);
+    for (int i=y_uRange-1;i<=y_dRange+1;i++) {
+        locate(x_lRange-1,i);
         cout << "|";
-        locate(x_rRange+2,i);
+        locate(x_rRange+1,i);
         cout << "|";
     }
 }
@@ -612,13 +636,13 @@ void Game_Start() {
         bullet_enermy_interaction(enermies,dead,bullet_in_field,bullet_pool);
         bullet_reuse(bullet_in_field, bullet_pool);
         bullet_award(bullet_in_gun, bullet_in_field, bullet_pool);
-        locate(X_rRANGE+6, Y_uRANGE+12);
+        locate(X_rRANGE+4, Y_uRANGE+12);
         cout << "gun: " << bullet_in_gun.size();
-        locate(X_rRANGE+6, Y_uRANGE+14);
+        locate(X_rRANGE+4, Y_uRANGE+14);
         cout << "field: " << bullet_in_field.size();
-        locate(X_rRANGE+6, Y_uRANGE+16);
+        locate(X_rRANGE+4, Y_uRANGE+16);
         cout << "bullet_pool: " << bullet_pool.size();
-        locate(X_rRANGE+6, Y_uRANGE+10);
+        locate(X_rRANGE+4, Y_uRANGE+10);
         cout << "blood: " << player.health;
         // for (int i=0;i<wang.health;i++) {
         //     cout << "|";
