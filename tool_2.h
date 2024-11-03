@@ -4,6 +4,7 @@
 #include <ctime> // time_t, difftime, time
 #include <cmath>
 #include <Windows.h>
+#include <iomanip> // setw
 #include <list>
 using namespace std;
 
@@ -23,17 +24,18 @@ using namespace std;
 #define STAIR_LEN 10
 #define HEALTH 10
 #define HARMFUL 20
-#define BULLET_SPEED 0.35
-#define COOL_TIME 2 // 子彈發射的冷卻期
+#define BULLET_SPEED 1
+#define COOL_TIME 1 // 子彈發射的冷卻期
 #define EDGE_ADJUST 5
 #define SCROLL_THRESHOLD (Y_dRANGE-((Y_dRANGE-Y_uRANGE)/2))
-#define SCROLL_SPEED 0.1
+#define SCROLL_SPEED 0.5
 #define PROBABILITY 5 //機率會是 (3/PROBABILITY)
 #define STAIR_NUM 35
 #define ENERMY_NUM 25
 #define BULLET_NUM 20
 #define BULLET_INITIAL_NUM 10
-#define AWARD_THRESHOLD 30
+#define AWARD_THRESHOLD 20
+#define PRIME 3539
 int scroll_count = 0; // 紀錄捲動數量，用來給子彈和決定何時不畫地板
 bool show_floor = true;
 
@@ -166,7 +168,7 @@ public:
 
 class stair {
 private:
-    static int cnt; // 計算場上stair的數量，初值不可in-class initialization，static也不允許不給初值
+    static int cnt; // 計算場上stair的數量，初值不可in-class initialization，static也不允許不給初值 (最後都在pool中，cnt值不會變動了，感覺很冗)
 public:
     // 雖然隨機分配給x, y的會是整數，但為了後續位移的操作，還是設成double
     double x, y;
@@ -176,7 +178,7 @@ public:
         cnt++;
         // 直接把下面的code獨立出去，然後在這邊複用
         // 超出上方界線的地方的stair是捲動時要待命的
-        change_info(Y_uRANGE-Y_dRANGE, Y_dRANGE-EDGE_ADJUST);
+        change_info(PRIME*cnt, Y_uRANGE-Y_dRANGE, Y_dRANGE-EDGE_ADJUST);
         // print();
     }
     ~stair() {
@@ -189,9 +191,9 @@ public:
     // 為了讓捲動後會出來的stair物件stand by，要在捲動前就在上方待命
     // 所以change_info這樣改寫比較有通用性
     // 順便也把控制stair初始高度的權柄交給寫code的人
-    void change_info(int y_uRange = Y_uRANGE, int y_dRange = Y_dRANGE) {
+    void change_info(unsigned int outer_seed = PRIME, int y_uRange = Y_uRANGE-Y_dRANGE, int y_dRange = Y_uRANGE) { // 默認值是專門為standby設計的，因為standby(pool)才是本成員函數的主要使用者
         time_t random_seed;
-        srand(time(&random_seed) + cnt*3539); // 假亂數，只好抓一個質數3539來降低亂數的pattern感
+        srand(time(&random_seed) + outer_seed); // 假亂數，只好抓一個質數PRIME來降低亂數的pattern感，為了避免外部呼叫此函數會出現所有亂數都一模一樣的情況添加了外部seed
         x = (rand() % (X_rRANGE-X_lRANGE)) + X_lRANGE;
         y = (rand() % (y_dRange-y_uRange)) + y_uRange;
     }
@@ -262,7 +264,7 @@ public:
     }
     void change_info(stair &s){
         time_t random_seed;
-        srand(time(&random_seed) + cnt*97);
+        srand(time(&random_seed) + cnt*PRIME);
         x = s.x + (rand() % STAIR_LEN);
         y = s.y - 1; // 站在stair上所以y要減1
         speed = (rand() % 5)*0.1; // 慢一點
@@ -402,8 +404,6 @@ void character_stair_interaction(list<stair*> &STAIRS, character &person) {
 
 // 處理人物遇到敵人被扣血的狀況，harmful值是敵人傷害你一次需要回復攻擊力的時間，越高表示越不具傷害性
 void character_enermy_interaction(list<enermy*> &ENERMY, character &person) {
-    locate(0,0);
-    cout << ENERMY.size();
     for (auto p : ENERMY) {
         if ((abs(p->x-person.x)<=3) && (abs(p->y-person.y)<=3) && p->harmful == HARMFUL) {
             person.health--;
@@ -492,8 +492,8 @@ void print_edge(int x_rRange = X_rRANGE, int y_dRange = Y_dRANGE, int x_lRange =
 
 void bullet_award(list<bullet*> &bullet_in_gun, list<bullet*> &bullet_in_field, list<bullet*> &bullet_pool){
     // 上升到一定程度時給予子彈獎勵(暫時不設計子彈補充包)
-    if (scroll_count > AWARD_THRESHOLD) {
-        scroll_count = 0;
+    if (scroll_count % AWARD_THRESHOLD == AWARD_THRESHOLD - 1) { // 因為scroll_count還需要控制stair 的standby，所以不能在這邊直接設0
+        // scroll_count = 0;
         if (bullet_in_gun.size() < BULLET_NUM) {
             // 如果這個pool有東西
             if (!bullet_pool.empty()) {
@@ -557,22 +557,51 @@ void scroll_screen(list<enermy*> &living, list<bullet*> &active, list<stair*> &S
     }
 }
 
-// void standby_stairs_and_enermies(list<stair*> &stairs, list<enermy*> &enermies) {
-//     for (stair* s : stairs) {
-//         s->change_info();
-//     }
-//     for (int i=0;i<stairs.size();i++) {
-//         time_t random_seed;
-//         srand(time(&random_seed));
-//         stair* p = new stair();
-//         if (rand() % PROBABILITY < 3 && enermies.size() < ENERMY_NUM) {
-//             enermy* e = new enermy(*p);
-//             enermies.push_back(e);
-//         }
-//         // 可以在生成stair時順便決定要不要生成敵人，這樣可以隨機分配部分stair上有敵人
-//         stairs.push_back(p);
-//     }
-// }
+void standby_stairs_and_enermies(list<stair*> &stair_in_pool, list<stair*> &stair_in_field, list<enermy*> &enermies, list<enermy*> &dead) {
+    // 先簡單起見，設計pool再利用的比率是100%，也就是每次stair pool補充都是全部補充到遊戲中
+    if (scroll_count*SCROLL_SPEED >= Y_dRANGE) {
+        scroll_count = 0;
+        locate(X_rRANGE+4, Y_dRANGE+4);
+        while (!stair_in_pool.empty()) {
+            time_t random_seed;
+            srand(time(&random_seed) + PRIME + stair_in_pool.size());
+            stair* s = stair_in_pool.front();
+            stair_in_pool.pop_front();
+            s->change_info(rand());
+            stair_in_field.push_back(s);
+            if (rand() % PROBABILITY < 3 && !dead.empty()) {
+                enermy* e = dead.front();
+                dead.pop_front();
+                e->change_info(*s);
+                enermies.push_back(e);
+            }
+        }
+    }
+}
+
+// 回收出界的stair
+void stair_reuse(list<stair*> &stair_in_field, list<stair*> &stair_in_pool){
+    for (auto it=stair_in_field.begin(), it_next=it;it!=stair_in_field.end();it=it_next) {
+        it_next++;
+        if ((*it)->y > Y_dRANGE) { // 這邊不可以抄bullet_reuse的!is_in((*it)->x,(*it)->y)，因為你standby的stair和橫向超出範圍的stair不全是is_in
+            stair_in_pool.push_back(*it);
+            (*it)->clean();
+            stair_in_field.erase(it);
+        }
+    }
+}
+// 回收出界的enermy
+void enermy_reuse(list<enermy*> &enermy_in_field, list<enermy*> &enermy_in_pool){
+    for (auto it=enermy_in_field.begin(), it_next=it;it!=enermy_in_field.end();it=it_next) {
+        it_next++;
+        if ((*it)->y > Y_dRANGE+2) { // 照抄stair_reuse，但因為enermy有身高，所以要微調
+            enermy_in_pool.push_back(*it);
+            (*it)->clean();
+            enermy_in_field.erase(it);
+        }
+    }
+}
+
 
 void initialize_stairs_and_enermies(list<stair*> &stairs, list<enermy*> &enermies){
     enermy* first_floor = new enermy();
@@ -596,7 +625,7 @@ void initialize_potential_bullet(list<bullet*> &bullet_in_gun){
         bullet_in_gun.push_back(p);
     }
 }
-// 有bug，就是出界後場上留下子彈殘影
+// 
 void bullet_reuse(list<bullet*> &bullet_in_field, list<bullet*> &bullet_pool){
     for (auto it=bullet_in_field.begin(), it_next=it;it!=bullet_in_field.end();it=it_next) {
         it_next++;
@@ -612,10 +641,10 @@ void Game_Start() {
     character player(X_lRANGE+2,Y_dRANGE);
 
     // 建立樓梯物件
-    list<stair*> stairs, block; // stairs是在遊戲介面中的stair，block則是不在遊戲介面中的stair(待命中)
+    list<stair*> stair_in_field, stair_in_pool; // stair_in_field是在遊戲介面中的stair，stair_in_pool則是不在遊戲介面中的stair(待命中)
     list<enermy*> enermies, dead; // enermies: 遊戲介面中/ dead: 待命中
     list<bullet*> bullet_in_gun, bullet_in_field, bullet_pool; //  bullet_in_field: 遊戲介面中/ bullet_in_gun: 待命中
-    initialize_stairs_and_enermies(stairs, enermies);
+    initialize_stairs_and_enermies(stair_in_field, enermies);
     
     // enermy* first_floor = new enermy();
     // enermies.push_back(first_floor);
@@ -649,38 +678,55 @@ void Game_Start() {
         // chang.move();
         // chung.move();
         player.move();
-        scroll_screen(enermies,bullet_in_field,stairs,player);
-        character_stair_interaction(stairs,player);
+        scroll_screen(enermies,bullet_in_field,stair_in_field,player);
+        character_stair_interaction(stair_in_field,player);
         character_enermy_interaction(enermies,player);
         shoot(bullet_in_gun,bullet_in_field,player);
         // bullet_move(b);
         bullet_enermy_interaction(enermies,dead,bullet_in_field,bullet_pool);
         bullet_reuse(bullet_in_field, bullet_pool);
         bullet_award(bullet_in_gun, bullet_in_field, bullet_pool);
-        locate(X_rRANGE+4, Y_uRANGE+12);
-        cout << "gun: " << bullet_in_gun.size();
-        locate(X_rRANGE+4, Y_uRANGE+14);
-        cout << "field: " << bullet_in_field.size();
-        locate(X_rRANGE+4, Y_uRANGE+16);
-        cout << "bullet_pool: " << bullet_pool.size();
+        standby_stairs_and_enermies(stair_in_pool, stair_in_field, enermies, dead);
+        stair_reuse(stair_in_field, stair_in_pool);
+        enermy_reuse(enermies, dead);
         locate(X_rRANGE+4, Y_uRANGE+10);
         cout << "blood: " << player.health;
+        locate(X_rRANGE+4, Y_uRANGE+12);
+        cout << "gun: " << setw(2) << bullet_in_gun.size();
+        locate(X_rRANGE+4, Y_uRANGE+14);
+        cout << "field: " << setw(2) << bullet_in_field.size();
+        locate(X_rRANGE+4, Y_uRANGE+16);
+        cout << "bullet_pool: " << setw(2) << bullet_pool.size();
+        locate(X_rRANGE+4, Y_uRANGE+18);
+        cout << "stair_field: " << setw(2) << stair_in_field.size();
+        locate(X_rRANGE+4, Y_uRANGE+20);
+        cout << "stair_pool: " << setw(2) << stair_in_pool.size();
+        locate(X_rRANGE+4, Y_uRANGE+22);
+        cout << "alive_enermy: " << setw(2) << enermies.size();
+        locate(X_rRANGE+4, Y_uRANGE+24);
+        cout << "dead_enermy: " << setw(2) << dead.size();
+
         // for (int i=0;i<wang.health;i++) {
         //     cout << "|";
         // }
     }
     // 銷毀所有的樓梯物件
-    for (auto p : stairs) {
+    for (auto p : stair_in_field) {
         delete p;
     }
 }
 
+// 待解決bug:
+// 出現殺不死的敵人
+// O 敵人出界也要回收，因為如果全部都不在dead中就無法回收
+// 樓梯有時候會被穿透
+// 彈跳時會超過天花板
 
 
 // to do list:
 // 改變顏色
 // 一些其他美觀和guide、血條、積分等等的設定
-// 爬上樓要捲動畫面
+// O 爬上樓要捲動畫面
 // 捲動上去的話可以獲得子彈數量，上限暫定10
 // O 子彈可以攻擊敵人
 // 殺掉敵人可以獲得積分
