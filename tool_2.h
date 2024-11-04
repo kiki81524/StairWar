@@ -23,6 +23,7 @@ using namespace std;
 #define VELOCITY 2.1 // 跳躍的初速度(v_0) // v_0 = g*t可以算到最頂端的所需的時間->v_0*t-g*t*t = 0
 #define STAIR_LEN 10
 #define HEALTH 10
+#define HURT_COUNT 30
 #define HARMFUL 30
 #define BULLET_SPEED 1
 #define COOL_TIME 1 // 子彈發射的冷卻期
@@ -38,6 +39,8 @@ using namespace std;
 #define PRIME 3539
 int scroll_count = 0; // 紀錄捲動數量，用來給子彈和決定何時不畫地板
 bool show_floor = true;
+int kill_enermy = 0;
+int hurt_count = 0;
 
 // 不做函數多載了，統一都是給x,y座標
 void locate(double x, double y) {
@@ -73,8 +76,8 @@ void Initialize() // set console title and hide console cursor
     // ShowWindow(GetForegroundWindow(),SW_MAXIMIZE);
 
     // set console title設定視窗的名字顯示
-    // string title = "Kiki123";
-	// SetConsoleTitle((LPCTSTR)title.c_str()); 
+    string title = "Stair War--kiki";
+	SetConsoleTitle((LPCTSTR)title.c_str()); 
     // cout << "Initialed";
 	const CONSOLE_CURSOR_INFO setting = {.dwSize = 1, .bVisible = FALSE};
     // SetConsoleCursorInfo: 設定指定主控台畫面緩衝區之游標的大小和可見性。
@@ -94,7 +97,7 @@ public:
     double speed; // speed設成整數，因為你的任何移動都只能是整數操作，行跟列的定位沒有在跟你小數的啦
     double velocity;
     int health;
-    bool hurt;
+    bool hurt; // 後來引入了hurt_count，感覺可以取消這個參數的使用
     // 判斷是否觸地
     bool grounded;
 
@@ -114,7 +117,7 @@ public:
     void print() {
         // 雖然有在下方move的邏輯中限制人物的範圍，但下方邏輯限制的是第一個點的位置，其他身體部件還是會超出界線
         // 所以要改一下print/clean定位的邏輯(相對位置修改)
-        if (hurt) set_color(FOREGROUND_RED);
+        if (hurt_count!=0) set_color(FOREGROUND_RED);
         else set_color(14); // 14=黃色
         // 因為早在設計move時已經限制住了移動範圍不超過遊戲範圍
         // 但這邊為了做出人被捲到下方的效果，所以需要有"當y超過範圍就要隱藏"的邏輯
@@ -179,7 +182,7 @@ public:
         if (!grounded) {
             velocity += GRAVITY;
             if (y + velocity > Y_dRANGE) {
-                if (show_floor) {
+                if (show_floor) { // 為了debug暫時關掉
                     y= Y_dRANGE;
                     velocity = 0;
                 }
@@ -189,8 +192,9 @@ public:
                     y = y + velocity;
                 }
             }
-            else if (y + velocity < Y_uRANGE) {
-                y = Y_uRANGE;
+            // 因為是以右腳為定位點，避免操作時人物超出遊戲介面，需要微調範圍限制
+            else if (y + velocity < Y_uRANGE+2) {
+                y = Y_uRANGE+2;
                 // 撞到天花板，作用力等於反作用力，加速度化成速度應該沒毛病
                 velocity = -velocity;
             }
@@ -220,8 +224,6 @@ public:
     }
     ~stair() {
         clean();
-        cout << "stair destruct\n";
-        Sleep(100);
         cnt--;
     }
 
@@ -297,7 +299,6 @@ public:
     }
     ~enermy() {
         clean();
-        cout << "enermy destruct\n";
         cnt--;
     }
     void change_info(stair &s){
@@ -399,7 +400,6 @@ public:
     }
     ~bullet() {
         clean();
-        cout << "bullet destruct\n";
     }
     void print() {
         locate(x, y);
@@ -429,7 +429,8 @@ void character_stair_interaction(list<stair*> &STAIRS, character &person) {
             // 當人物在移動時，有時候速度會太快，所以要提早處理他的grounded性質
             // 已知bug: 當人物站在stair上且頭頂距離天花板只有1格空間時，無法起跳，可能是只要起跳就會馬上被這邊還原成站在stair上的位置
             // 已知bug: 剛好跳到頂端時是在別的stair上，會直接穿過那個stair掉回去
-            if ((int(s->y)-int(person.y)>=1) && s->y - person.y < VELOCITY) { // VELOCITYperson.velocity
+            // if ((int(s->y)-int(person.y)>=1) && s->y - person.y < VELOCITY) {
+            if ((int(s->y)-int(person.y)>=1) && s->y - person.y - 1 < person.velocity) { // VELOCITYperson.velocity
                 person.grounded = true;
                 person.velocity = 0;
                 person.clean();
@@ -447,14 +448,15 @@ void character_stair_interaction(list<stair*> &STAIRS, character &person) {
 // 處理人物遇到敵人被扣血的狀況，harmful值是敵人傷害你一次需要回復攻擊力的時間，越高表示越不具傷害性
 void character_enermy_interaction(list<enermy*> &ENERMY, character &person) {
     for (auto p : ENERMY) {
-        if ((abs(p->x-person.x)<=3) && (abs(p->y-person.y)<=3) && person.hurt == false) {
+        if ((abs(p->x-person.x)<=3) && (abs(p->y-person.y)<=3) && hurt_count == 0) { // person.hurt == false
             person.health--;
-            person.hurt = true;
+            // person.hurt = true;
+            hurt_count = HURT_COUNT;
             p->harmful = 0;
         }
         if (p->harmful<HARMFUL) {
             p->harmful++;
-            if (p->harmful == HARMFUL/2) person.hurt = false; // 要特定那隻造成角色傷害的enermy恢復攻擊力時=角色恢復健康時
+            // if (p->harmful == HARMFUL/2) person.hurt = false; // 要特定那隻造成角色傷害的enermy恢復攻擊力時=角色恢復健康時 // 但是enermy剛好死掉的話就會有bug
         }
         // else if (p->harmful == HARMFUL) person.hurt == false;
         // p->move();
@@ -500,6 +502,11 @@ void bullet_enermy_interaction(list<enermy*> &living, list<enermy*> &dead, list<
             if  ((int((*it1)->x) - int((*it2)->x) == 1 && int((*it1)->y) - int((*it2)->y) == 2) || ((*it1)->x - (*it2)->x <= 2 && (*it2)->x - (*it1)->x <= 1 && int((*it1)->y) - int((*it2)->y) == 1) || ((*it1)->x - (*it2)->x <= 1 && (*it2)->x - (*it1)->x <= 0 && int((*it1)->y) == int((*it2)->y))) {
                 (*it1)->clean(); // 或許安排成敵人閃爍會比較有感
                 (*it2)->clean();
+                kill_enermy++;
+                // 為了解決扣血狀態下敵人死去的bug，回收敵人前先讓harmful回來，然後person.hurt = false;
+                // if ((*it1)->harmful < HARMFUL/2) {
+                //     (*it1)->harmful = HARMFUL;
+                // }
                 dead.push_back((*it1)); // 注意，待修改，如果當前已經沒有一樓的蹤影，一樓的守衛或許要永久性地刪除
                 bullet_pool.push_back((*it2));
                 living.erase(it1);
@@ -527,7 +534,7 @@ void print_edge(int x_rRange = X_rRANGE, int y_dRange = Y_dRANGE, int x_lRange =
         locate(i,y_dRange+1);
         // 如果往上捲動到一定程度，就沒有地板了
         if (show_floor) cout << "=";
-        else cout << ".";
+        else cout << " ";
     }
     for (int i=y_uRange-1;i<=y_dRange+1;i++) {
         locate(x_lRange-1,i);
@@ -561,6 +568,8 @@ void bullet_award(list<bullet*> &bullet_in_gun, list<bullet*> &bullet_in_field, 
 // 實作出捲動遊戲畫面的效果(其實就是相對運動，將所有物件的y座標增加(增加就是往下移))
 // 順便利用scroll_screen統一管控各物件的打印
 void scroll_screen(list<enermy*> &living, list<bullet*> &active, list<stair*> &STAIR, character &person){
+    // 順便處理人物的扣血計時
+    if (hurt_count!=0) hurt_count--;
     // 如果遊戲人物他並非處在跳躍狀態，且他所在的高度達到了某個閾值，那麼就捲動畫面
     if (person.velocity==0 && person.y < SCROLL_THRESHOLD) {
         scroll_count++;
@@ -710,8 +719,10 @@ void check_info_for_RD( character &player, list<stair*> &stair_in_field, list<st
                         list<bullet*> &bullet_in_gun, list<bullet*> &bullet_in_field, list<bullet*> &bullet_pool,
                         list<enermy*> &enermies, list<enermy*> &dead)
 {
+    locate(X_rRANGE+4, Y_uRANGE+8);
+    cout << "blood: " << setw(2) << player.health;
     locate(X_rRANGE+4, Y_uRANGE+10);
-    cout << "blood: " << player.health;
+    cout << "score: " << setw(2) << kill_enermy;
     locate(X_rRANGE+4, Y_uRANGE+12);
     cout << "gun: " << setw(2) << bullet_in_gun.size();
     locate(X_rRANGE+4, Y_uRANGE+14);
@@ -725,9 +736,32 @@ void check_info_for_RD( character &player, list<stair*> &stair_in_field, list<st
     locate(X_rRANGE+4, Y_uRANGE+22);
     cout << "alive_enermy: " << setw(2) << enermies.size();
     locate(X_rRANGE+4, Y_uRANGE+24);
-    cout << "dead_enermy: " << setw(2) << dead.size();
+    cout << "enermy_pool: " << setw(2) << dead.size();
 }
 
+// 從文本和圖像生成ASCII Art: https://zh-tw.rakko.tools/tools/68/
+void welcome_animation(){
+    clean_screen(200,60,0,0);
+    print_edge();
+    locate(X_lRANGE+20, Y_uRANGE+15);
+    cout << "  #####   ######     ##      ####    ######          ##   ##    ##     ######";
+    locate(X_lRANGE+20, Y_uRANGE+16);
+    cout << " ##   ##  # ## #    ####      ##      ##  ##         ##   ##   ####     ##  ##";
+    locate(X_lRANGE+20, Y_uRANGE+17);
+    cout << " #          ##     ##  ##     ##      ##  ##         ##   ##  ##  ##    ##  ##";
+    locate(X_lRANGE+20, Y_uRANGE+18);
+    cout << "  #####     ##     ##  ##     ##      #####          ## # ##  ##  ##    #####";
+    locate(X_lRANGE+20, Y_uRANGE+19);
+    cout << "      ##    ##     ######     ##      ## ##          #######  ######    ## ##";
+    locate(X_lRANGE+20, Y_uRANGE+20);
+    cout << " ##   ##    ##     ##  ##     ##      ##  ##         ### ###  ##  ##    ##  ##";
+    locate(X_lRANGE+20, Y_uRANGE+21);
+    cout << "  #####    ####    ##  ##    ####    #### ##         ##   ##  ##  ##   #### ##";
+    locate(X_lRANGE+70, Y_uRANGE+24);
+    cout <<" developed by Kiki Liu. -2024.11";
+    Sleep(5000);
+    clean_screen(200,60,0,0);
+}
 
 void Game_Start() {
     character player(X_lRANGE+2,Y_dRANGE);
@@ -743,6 +777,7 @@ void Game_Start() {
     cout << "wait a minute...";
     Sleep(2000);
     clean_screen(200,60,0,0);
+    welcome_animation();
 
     // 以下尚未整理好
     while (1) {
@@ -777,8 +812,8 @@ void Game_Start() {
 // 待解決bug:
 // 出現殺不死的敵人
 // O 敵人出界也要回收，因為如果全部都不在dead中就無法回收
-// 樓梯有時候會被穿透
-// 彈跳時會超過天花板
+// O 樓梯有時候會被穿透
+// O 彈跳時會超過天花板
 
 
 // to do list:
@@ -787,11 +822,11 @@ void Game_Start() {
 // O 爬上樓要捲動畫面
 // O 捲動上去的話可以獲得子彈數量，上限暫定10
 // O 子彈可以攻擊敵人
-// 殺掉敵人可以獲得積分
+// O 殺掉敵人可以獲得積分
 // O 如何隨機分配敵人在部分stair上
 // O 敵人撞到你，你要扣血
 // 被敵人撞到，你要閃紅表示受傷O，血條也要閃
-// 殲滅敵人要獲得積分(積分可以幹嘛?我們目標是賺積分還是爬樓?)
+// O 殲滅敵人要獲得積分(積分可以幹嘛?我們目標是賺積分還是爬樓?)
 // O 殲滅敵人用的子彈
 // 我想使用中文字，可能要改編碼?
 // X 固定.exe打開的視窗大小
@@ -802,5 +837,5 @@ void Game_Start() {
 // O 處理超出畫面時的物件clean()，因為如果你不處理的話，螢幕顯示出的字元會溢出到別的行列去，你的畫面會漸漸變得可怕
 // 要檢視一遍各個物件的交互作用，尤其是move和print的使用要控管，不然各處都一起用，印出容易有bug
 // O 實作出掉下樓的效果
-// 掉下樓後遊戲要結束
+// O 掉下樓後遊戲要結束
 // 取消上下鍵功能(上下鍵功能是for開發人員用來debug的外掛)
