@@ -116,12 +116,20 @@ public:
         // 所以要改一下print/clean定位的邏輯(相對位置修改)
         if (hurt) set_color(FOREGROUND_RED);
         else set_color(14); // 14=黃色
-        locate(x-1, y-2);//(x, y);
-        cout << "O";
-        locate(x-2, y-1);//(x, y+1); 
-        cout << "/||\\";
-        locate(x-1, y);//(x, y+2); 
-        cout << "/\\";
+        // 因為早在設計move時已經限制住了移動範圍不超過遊戲範圍
+        // 但這邊為了做出人被捲到下方的效果，所以需要有"當y超過範圍就要隱藏"的邏輯
+        if (is_in(X_lRANGE, y-2)) {
+            locate(x-1, y-2);
+            cout << "O";
+        }
+        if (is_in(X_lRANGE, y-1)) {
+            locate(x-2, y-1); 
+            cout << "/||\\";
+        }
+        if (is_in(X_lRANGE, y)) {
+            locate(x-1, y);
+            cout << "/\\";
+        }
         set_color(); // 畫完後要把顏色還原，方便下一個使用者
     }
     // 嘗試加入jump的支援
@@ -171,9 +179,15 @@ public:
         if (!grounded) {
             velocity += GRAVITY;
             if (y + velocity > Y_dRANGE) {
-                y= Y_dRANGE;
-                // grounded = true; 下面有if做了，不用多此一舉
-                velocity = 0;
+                if (show_floor) {
+                    y= Y_dRANGE;
+                    velocity = 0;
+                }
+                // 要讓人物掉下去所以寫了下面的邏輯
+                else {
+                    hurt = true;
+                    y = y + velocity;
+                }
             }
             else if (y + velocity < Y_uRANGE) {
                 y = Y_uRANGE;
@@ -183,7 +197,7 @@ public:
             // 位移更新(算入速度作用)
             else y = y + velocity;
         }
-        if (y == Y_dRANGE) grounded = true;
+        if (y == Y_dRANGE && show_floor) grounded = true;
         // else grounded==false;
     }
 
@@ -283,6 +297,7 @@ public:
     }
     ~enermy() {
         clean();
+        cout << "enermy destruct\n";
         cnt--;
     }
     void change_info(stair &s){
@@ -381,6 +396,10 @@ public:
     void clean() {
         locate(x, y);
         cout << " ";
+    }
+    ~bullet() {
+        clean();
+        cout << "bullet destruct\n";
     }
     void print() {
         locate(x, y);
@@ -666,24 +685,71 @@ void bullet_reuse(list<bullet*> &bullet_in_field, list<bullet*> &bullet_pool){
     }
 }
 
+// 銷毀所有的(樓梯)物件
+void memory_return(list<stair*> &stairs){
+    for (auto p : stairs) {
+        delete p;
+        p = nullptr;
+    }
+}
+void memory_return(list<enermy*> &enermies){
+    for (auto p : enermies) {
+        delete p;
+        p = nullptr;
+    }
+}
+void memory_return(list<bullet*> &bullets){
+    for (auto p : bullets) {
+        delete p;
+        p = nullptr;
+    }
+}
+
+// 為了方便我查看資訊
+void check_info_for_RD( character &player, list<stair*> &stair_in_field, list<stair*> &stair_in_pool, 
+                        list<bullet*> &bullet_in_gun, list<bullet*> &bullet_in_field, list<bullet*> &bullet_pool,
+                        list<enermy*> &enermies, list<enermy*> &dead)
+{
+    locate(X_rRANGE+4, Y_uRANGE+10);
+    cout << "blood: " << player.health;
+    locate(X_rRANGE+4, Y_uRANGE+12);
+    cout << "gun: " << setw(2) << bullet_in_gun.size();
+    locate(X_rRANGE+4, Y_uRANGE+14);
+    cout << "field: " << setw(2) << bullet_in_field.size();
+    locate(X_rRANGE+4, Y_uRANGE+16);
+    cout << "bullet_pool: " << setw(2) << bullet_pool.size();
+    locate(X_rRANGE+4, Y_uRANGE+18);
+    cout << "stair_field: " << setw(2) << stair_in_field.size();
+    locate(X_rRANGE+4, Y_uRANGE+20);
+    cout << "stair_pool: " << setw(2) << stair_in_pool.size();
+    locate(X_rRANGE+4, Y_uRANGE+22);
+    cout << "alive_enermy: " << setw(2) << enermies.size();
+    locate(X_rRANGE+4, Y_uRANGE+24);
+    cout << "dead_enermy: " << setw(2) << dead.size();
+}
+
+
 void Game_Start() {
     character player(X_lRANGE+2,Y_dRANGE);
 
-    // 建立樓梯物件
+    // 建立物件
     list<stair*> stair_in_field, stair_in_pool; // stair_in_field是在遊戲介面中的stair，stair_in_pool則是不在遊戲介面中的stair(待命中)
     list<enermy*> enermies, dead; // enermies: 遊戲介面中/ dead: 待命中
     list<bullet*> bullet_in_gun, bullet_in_field, bullet_pool; //  bullet_in_field: 遊戲介面中/ bullet_in_gun: 待命中
     initialize_stairs_and_enermies(stair_in_field, enermies);
     initialize_potential_bullet(bullet_in_gun);
+
     locate(X_rRANGE/2, Y_dRANGE/2);
     cout << "wait a minute...";
     Sleep(2000);
     clean_screen(200,60,0,0);
+
     // 以下尚未整理好
     while (1) {
         Initialize();
         print_edge();
-        if (GetAsyncKeyState(VK_ESCAPE)) break;
+        // 如果按了退出鍵或是人物掉下樓 遊戲就結束
+        if (GetAsyncKeyState(VK_ESCAPE) || player.y > Y_dRANGE+5) break;
         
         player.move();
         scroll_screen(enermies,bullet_in_field,stair_in_field,player);
@@ -696,27 +762,16 @@ void Game_Start() {
         standby_stairs_and_enermies(stair_in_pool, stair_in_field, enermies, dead);
         stair_reuse(stair_in_field, stair_in_pool);
         enermy_reuse(enermies, dead);
-        locate(X_rRANGE+4, Y_uRANGE+10);
-        cout << "blood: " << player.health;
-        locate(X_rRANGE+4, Y_uRANGE+12);
-        cout << "gun: " << setw(2) << bullet_in_gun.size();
-        locate(X_rRANGE+4, Y_uRANGE+14);
-        cout << "field: " << setw(2) << bullet_in_field.size();
-        locate(X_rRANGE+4, Y_uRANGE+16);
-        cout << "bullet_pool: " << setw(2) << bullet_pool.size();
-        locate(X_rRANGE+4, Y_uRANGE+18);
-        cout << "stair_field: " << setw(2) << stair_in_field.size();
-        locate(X_rRANGE+4, Y_uRANGE+20);
-        cout << "stair_pool: " << setw(2) << stair_in_pool.size();
-        locate(X_rRANGE+4, Y_uRANGE+22);
-        cout << "alive_enermy: " << setw(2) << enermies.size();
-        locate(X_rRANGE+4, Y_uRANGE+24);
-        cout << "dead_enermy: " << setw(2) << dead.size();
+        check_info_for_RD(player, stair_in_field, stair_in_pool, bullet_in_gun, bullet_in_field, bullet_pool, enermies, dead);
     }
-    // 銷毀所有的樓梯物件
-    for (auto p : stair_in_field) {
-        delete p;
-    }
+    // 銷毀所有物件
+    memory_return(stair_in_field);
+    memory_return(stair_in_pool);
+    memory_return(enermies);
+    memory_return(dead);
+    memory_return(bullet_in_gun);
+    memory_return(bullet_in_field);
+    memory_return(bullet_pool);
 }
 
 // 待解決bug:
@@ -740,11 +795,12 @@ void Game_Start() {
 // O 殲滅敵人用的子彈
 // 我想使用中文字，可能要改編碼?
 // X 固定.exe打開的視窗大小
-// 為避免變動視窗大小造成螢幕出現殘留的物件影像，要設計flush機制
-// 要注意最後有將所有物件解構/delete
+// O 為避免變動視窗大小造成螢幕出現殘留的物件影像，要設計flush機制
+// O 要注意最後有將所有物件解構/delete
 // X 希望能設定視窗大小 [放棄!!!]
 // O 畫出遊戲戰場範圍
 // O 處理超出畫面時的物件clean()，因為如果你不處理的話，螢幕顯示出的字元會溢出到別的行列去，你的畫面會漸漸變得可怕
 // 要檢視一遍各個物件的交互作用，尤其是move和print的使用要控管，不然各處都一起用，印出容易有bug
-// 實作出掉下樓的效果
-// 取消上下鍵功能
+// O 實作出掉下樓的效果
+// 掉下樓後遊戲要結束
+// 取消上下鍵功能(上下鍵功能是for開發人員用來debug的外掛)
