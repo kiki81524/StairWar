@@ -15,7 +15,7 @@ using namespace std;
 #define JUMP VK_SPACE
 #define KEY_BOARD_SPEED 1
 #define X_lRANGE 3
-#define X_rRANGE 138
+#define X_rRANGE 133
 #define Y_uRANGE 4 // 到頂不知道為什麼，print會有殘影->因為你第一行print了別的數字
 #define Y_dRANGE 44
 #define UPDATE_INTERVAL 25
@@ -23,7 +23,7 @@ using namespace std;
 #define VELOCITY 2.1 // 跳躍的初速度(v_0) // v_0 = g*t可以算到最頂端的所需的時間->v_0*t-g*t*t = 0
 #define STAIR_LEN 10
 #define HEALTH 10
-#define HARMFUL 20
+#define HARMFUL 30
 #define BULLET_SPEED 1
 #define COOL_TIME 1 // 子彈發射的冷卻期
 #define EDGE_ADJUST 5
@@ -43,6 +43,25 @@ bool show_floor = true;
 void locate(double x, double y) {
     COORD position = {.X = (short)x, .Y = (short)y}; // COORD結構的兩個成員X和Y都是short型態
     SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), position); // 將游標locate到你position指定的位置
+}
+
+// 改變文字顏色
+// https://learn.microsoft.com/zh-tw/windows/console/using-the-high-level-input-and-output-functions
+void set_color(int change_text_color=7){ // 預設文字顏色為白色
+    WORD word_color_info;
+    CONSOLE_SCREEN_BUFFER_INFO csbiInfo;
+    HANDLE hStdout = GetStdHandle(STD_OUTPUT_HANDLE);
+    if (hStdout == INVALID_HANDLE_VALUE) {
+        cout << "GetStdHandle error in set_color.";
+    }
+    if (!GetConsoleScreenBufferInfo(hStdout, &csbiInfo)) {
+        cout << "GetConsoleScreenBufferInfo error in set_color.";
+    }
+    word_color_info = csbiInfo.wAttributes; // 前面到這邊為止基本上是為了取得console的背景色，因為文字顏色包括底色和字色
+    word_color_info = (word_color_info & 0xF0) + (change_text_color & 0x0F); // 底色不變的情況下改變字色
+    if (!SetConsoleTextAttribute(hStdout, word_color_info)) {
+        cout << "SetConsoleTextAttribute error in set_color.";
+    }
 }
 
 // 待修改，有點希望將它們拆成不同函數
@@ -75,12 +94,13 @@ public:
     double speed; // speed設成整數，因為你的任何移動都只能是整數操作，行跟列的定位沒有在跟你小數的啦
     double velocity;
     int health;
+    bool hurt;
     // 判斷是否觸地
     bool grounded;
 
     // 建構子
-    character(): x(0), y(0), speed(1), velocity(0), grounded(true), health(HEALTH) {}
-    character(double X, double Y, double SPEED = 1, double _VELOCITY = 0, bool GROUNDED = true): x(X), y(Y), speed(SPEED), velocity(_VELOCITY), grounded(GROUNDED), health(HEALTH) {}
+    character(): x(0), y(0), speed(1), velocity(0), grounded(true), health(HEALTH), hurt(false) {}
+    character(double X, double Y, double SPEED = 1, double _VELOCITY = 0, bool GROUNDED = true): x(X), y(Y), speed(SPEED), velocity(_VELOCITY), grounded(GROUNDED), health(HEALTH), hurt(false) {}
 
     // 處理顯像的相關函數
     void clean() {
@@ -94,12 +114,15 @@ public:
     void print() {
         // 雖然有在下方move的邏輯中限制人物的範圍，但下方邏輯限制的是第一個點的位置，其他身體部件還是會超出界線
         // 所以要改一下print/clean定位的邏輯(相對位置修改)
-        locate(x-1, y-2);//(x, y); 
+        if (hurt) set_color(FOREGROUND_RED);
+        else set_color(14); // 14=黃色
+        locate(x-1, y-2);//(x, y);
         cout << "O";
         locate(x-2, y-1);//(x, y+1); 
         cout << "/||\\";
         locate(x-1, y);//(x, y+2); 
         cout << "/\\";
+        set_color(); // 畫完後要把顏色還原，方便下一個使用者
     }
     // 嘗試加入jump的支援
     void move(){
@@ -405,11 +428,16 @@ void character_stair_interaction(list<stair*> &STAIRS, character &person) {
 // 處理人物遇到敵人被扣血的狀況，harmful值是敵人傷害你一次需要回復攻擊力的時間，越高表示越不具傷害性
 void character_enermy_interaction(list<enermy*> &ENERMY, character &person) {
     for (auto p : ENERMY) {
-        if ((abs(p->x-person.x)<=3) && (abs(p->y-person.y)<=3) && p->harmful == HARMFUL) {
+        if ((abs(p->x-person.x)<=3) && (abs(p->y-person.y)<=3) && person.hurt == false) {
             person.health--;
+            person.hurt = true;
             p->harmful = 0;
         }
-        if (p->harmful<HARMFUL) p->harmful++;
+        if (p->harmful<HARMFUL) {
+            p->harmful++;
+            if (p->harmful == HARMFUL/2) person.hurt = false; // 要特定那隻造成角色傷害的enermy恢復攻擊力時=角色恢復健康時
+        }
+        // else if (p->harmful == HARMFUL) person.hurt == false;
         // p->move();
     }
 }
@@ -512,6 +540,7 @@ void bullet_award(list<bullet*> &bullet_in_gun, list<bullet*> &bullet_in_field, 
 }
 
 // 實作出捲動遊戲畫面的效果(其實就是相對運動，將所有物件的y座標增加(增加就是往下移))
+// 順便利用scroll_screen統一管控各物件的打印
 void scroll_screen(list<enermy*> &living, list<bullet*> &active, list<stair*> &STAIR, character &person){
     // 如果遊戲人物他並非處在跳躍狀態，且他所在的高度達到了某個閾值，那麼就捲動畫面
     if (person.velocity==0 && person.y < SCROLL_THRESHOLD) {
@@ -645,26 +674,8 @@ void Game_Start() {
     list<enermy*> enermies, dead; // enermies: 遊戲介面中/ dead: 待命中
     list<bullet*> bullet_in_gun, bullet_in_field, bullet_pool; //  bullet_in_field: 遊戲介面中/ bullet_in_gun: 待命中
     initialize_stairs_and_enermies(stair_in_field, enermies);
-    
-    // enermy* first_floor = new enermy();
-    // enermies.push_back(first_floor);
-    // for (int i=0;i<STAIR_NUM;i++) {
-    //     time_t random_seed;
-    //     srand(time(&random_seed));
-    //     stair* p = new stair();
-    //     if (rand() % PROBABILITY < 3 && enermies.size() < ENERMY_NUM) {
-    //         enermy* e = new enermy(*p);
-    //         enermies.push_back(e);
-    //     }
-    //     // 可以在生成stair時順便決定要不要生成敵人，這樣可以隨機分配部分stair上有敵人
-    //     stairs.push_back(p);
-    // }
     initialize_potential_bullet(bullet_in_gun);
-    // for (int i=0;i<BULLET_NUM;i++) {
-    //     bullet* p = new bullet;
-    //     bullet_in_gun.push_back(p);
-    // }
-    // player.print();
+    locate(X_rRANGE/2, Y_dRANGE/2);
     cout << "wait a minute...";
     Sleep(2000);
     clean_screen(200,60,0,0);
@@ -674,15 +685,11 @@ void Game_Start() {
         print_edge();
         if (GetAsyncKeyState(VK_ESCAPE)) break;
         
-        // wang.print();
-        // chang.move();
-        // chung.move();
         player.move();
         scroll_screen(enermies,bullet_in_field,stair_in_field,player);
         character_stair_interaction(stair_in_field,player);
         character_enermy_interaction(enermies,player);
         shoot(bullet_in_gun,bullet_in_field,player);
-        // bullet_move(b);
         bullet_enermy_interaction(enermies,dead,bullet_in_field,bullet_pool);
         bullet_reuse(bullet_in_field, bullet_pool);
         bullet_award(bullet_in_gun, bullet_in_field, bullet_pool);
@@ -705,10 +712,6 @@ void Game_Start() {
         cout << "alive_enermy: " << setw(2) << enermies.size();
         locate(X_rRANGE+4, Y_uRANGE+24);
         cout << "dead_enermy: " << setw(2) << dead.size();
-
-        // for (int i=0;i<wang.health;i++) {
-        //     cout << "|";
-        // }
     }
     // 銷毀所有的樓梯物件
     for (auto p : stair_in_field) {
@@ -724,15 +727,15 @@ void Game_Start() {
 
 
 // to do list:
-// 改變顏色
+// O 改變顏色
 // 一些其他美觀和guide、血條、積分等等的設定
 // O 爬上樓要捲動畫面
-// 捲動上去的話可以獲得子彈數量，上限暫定10
+// O 捲動上去的話可以獲得子彈數量，上限暫定10
 // O 子彈可以攻擊敵人
 // 殺掉敵人可以獲得積分
 // O 如何隨機分配敵人在部分stair上
 // O 敵人撞到你，你要扣血
-// 被敵人撞到，你要閃紅表示受傷，血條也要閃
+// 被敵人撞到，你要閃紅表示受傷O，血條也要閃
 // 殲滅敵人要獲得積分(積分可以幹嘛?我們目標是賺積分還是爬樓?)
 // O 殲滅敵人用的子彈
 // 我想使用中文字，可能要改編碼?
@@ -743,3 +746,5 @@ void Game_Start() {
 // O 畫出遊戲戰場範圍
 // O 處理超出畫面時的物件clean()，因為如果你不處理的話，螢幕顯示出的字元會溢出到別的行列去，你的畫面會漸漸變得可怕
 // 要檢視一遍各個物件的交互作用，尤其是move和print的使用要控管，不然各處都一起用，印出容易有bug
+// 實作出掉下樓的效果
+// 取消上下鍵功能
