@@ -4,6 +4,7 @@
 #include <ctime> // time_t, difftime, time
 #include <cmath>
 #include <Windows.h>
+#include <conio.h> // getch
 #include <iomanip> // setw
 #include <list>
 using namespace std;
@@ -15,9 +16,9 @@ using namespace std;
 #define JUMP VK_SPACE
 #define KEY_BOARD_SPEED 1
 #define X_lRANGE 3
-#define X_rRANGE 133
-#define Y_uRANGE 4 // 到頂不知道為什麼，print會有殘影->因為你第一行print了別的數字
-#define Y_dRANGE 44
+#define X_rRANGE 153
+#define Y_uRANGE 5 // 到頂不知道為什麼，print會有殘影->因為你第一行print了別的數字
+#define Y_dRANGE 45
 #define UPDATE_INTERVAL 25
 #define GRAVITY 0.16 // 定義跳躍用的重力加速度大小
 #define VELOCITY 2.1 // 跳躍的初速度(v_0) // v_0 = g*t可以算到最頂端的所需的時間->v_0*t-g*t*t = 0
@@ -36,7 +37,17 @@ using namespace std;
 #define BULLET_NUM 20
 #define BULLET_INITIAL_NUM 10
 #define AWARD_THRESHOLD 20
-#define PRIME 3539
+#define KILL_BONUS 3
+#define HURT_PUNISH 1
+#define PRIME 19441 //93563 //3539
+#define WELCOME_MSG_XPOS 30
+#define WELCOME_MSG_YPOS 15
+#define GAMEOVER_MSG_XPOS 28
+#define GAMEOVER_MSG_YPOS 15
+#define MENU_MSG_XPOS 42
+#define MENU_MSG_YPOS 13
+int history_score = 0;
+int score = 0;
 int scroll_count = 0; // 紀錄捲動數量，用來給子彈和決定何時不畫地板
 bool show_floor = true;
 int kill_enermy = 0;
@@ -450,6 +461,8 @@ void character_enermy_interaction(list<enermy*> &ENERMY, character &person) {
     for (auto p : ENERMY) {
         if ((abs(p->x-person.x)<=3) && (abs(p->y-person.y)<=3) && hurt_count == 0) { // person.hurt == false
             person.health--;
+            score -= HURT_PUNISH;
+            history_score = max(history_score, score);
             // person.hurt = true;
             hurt_count = HURT_COUNT;
             p->harmful = 0;
@@ -503,6 +516,8 @@ void bullet_enermy_interaction(list<enermy*> &living, list<enermy*> &dead, list<
                 (*it1)->clean(); // 或許安排成敵人閃爍會比較有感
                 (*it2)->clean();
                 kill_enermy++;
+                score += KILL_BONUS;
+                history_score = max(history_score, score);
                 // 為了解決扣血狀態下敵人死去的bug，回收敵人前先讓harmful回來，然後person.hurt = false;
                 // if ((*it1)->harmful < HARMFUL/2) {
                 //     (*it1)->harmful = HARMFUL;
@@ -739,31 +754,139 @@ void check_info_for_RD( character &player, list<stair*> &stair_in_field, list<st
     cout << "enermy_pool: " << setw(2) << dead.size();
 }
 
+// 打印遊戲資訊(for玩家查看)
+void show_info( character &player, list<stair*> &stair_in_field, list<stair*> &stair_in_pool, 
+                        list<bullet*> &bullet_in_gun, list<bullet*> &bullet_in_field, list<bullet*> &bullet_pool,
+                        list<enermy*> &enermies, list<enermy*> &dead)
+{
+    int start_position = (X_lRANGE+X_rRANGE)/5;
+    locate(start_position, Y_uRANGE-3);
+    cout << "Record High";
+    clean_screen(start_position+5,Y_uRANGE-2,start_position,Y_uRANGE-2);
+    locate(start_position, Y_uRANGE-2);
+    cout << setw(5) << history_score;
+    
+    locate(start_position+15, Y_uRANGE-3);
+    cout << "Current Score";
+    clean_screen(start_position+20,Y_uRANGE-2,start_position+15,Y_uRANGE-2);
+    locate(start_position+15, Y_uRANGE-2);
+    cout << setw(5) << score;
+
+    locate(start_position+40, Y_uRANGE-3);
+    cout << "Health";
+    clean_screen(start_position+70,Y_uRANGE-2,start_position+40,Y_uRANGE-2);
+    set_color(FOREGROUND_RED);
+    locate(start_position+40, Y_uRANGE-2);
+    for (int i=0;i<player.health;i++) {
+        cout << "||";
+    }
+    set_color();
+
+    locate(start_position+80, Y_uRANGE-3);
+    cout << "Remaining Bullets";
+    clean_screen(start_position+105,Y_uRANGE-2,start_position+80,Y_uRANGE-2);
+    set_color(14);
+    locate(start_position+80, Y_uRANGE-2);
+    for (int i=0;i<bullet_in_gun.size();i++) {
+        cout << "*";
+    }
+    set_color();
+}
+
+
 // 從文本和圖像生成ASCII Art: https://zh-tw.rakko.tools/tools/68/
 void welcome_animation(){
     clean_screen(200,60,0,0);
     print_edge();
-    locate(X_lRANGE+20, Y_uRANGE+15);
-    cout << "  #####   ######     ##      ####    ######          ##   ##    ##     ######";
-    locate(X_lRANGE+20, Y_uRANGE+16);
-    cout << " ##   ##  # ## #    ####      ##      ##  ##         ##   ##   ####     ##  ##";
-    locate(X_lRANGE+20, Y_uRANGE+17);
-    cout << " #          ##     ##  ##     ##      ##  ##         ##   ##  ##  ##    ##  ##";
-    locate(X_lRANGE+20, Y_uRANGE+18);
-    cout << "  #####     ##     ##  ##     ##      #####          ## # ##  ##  ##    #####";
-    locate(X_lRANGE+20, Y_uRANGE+19);
-    cout << "      ##    ##     ######     ##      ## ##          #######  ######    ## ##";
-    locate(X_lRANGE+20, Y_uRANGE+20);
-    cout << " ##   ##    ##     ##  ##     ##      ##  ##         ### ###  ##  ##    ##  ##";
-    locate(X_lRANGE+20, Y_uRANGE+21);
-    cout << "  #####    ####    ##  ##    ####    #### ##         ##   ##  ##  ##   #### ##";
-    locate(X_lRANGE+70, Y_uRANGE+24);
+    locate(X_lRANGE+WELCOME_MSG_XPOS, Y_uRANGE+WELCOME_MSG_YPOS);
+    cout << "  #####   ######     ##      ####    ######            ##   ##    ##     ######";
+    locate(X_lRANGE+WELCOME_MSG_XPOS, Y_uRANGE+WELCOME_MSG_YPOS+1);
+    cout << " ##   ##  # ## #    ####      ##      ##  ##           ##   ##   ####     ##  ##";
+    locate(X_lRANGE+WELCOME_MSG_XPOS, Y_uRANGE+WELCOME_MSG_YPOS+2);
+    cout << " #          ##     ##  ##     ##      ##  ##           ##   ##  ##  ##    ##  ##";
+    locate(X_lRANGE+WELCOME_MSG_XPOS, Y_uRANGE+WELCOME_MSG_YPOS+3);
+    cout << "  #####     ##     ##  ##     ##      #####            ## # ##  ##  ##    #####";
+    locate(X_lRANGE+WELCOME_MSG_XPOS, Y_uRANGE+WELCOME_MSG_YPOS+4);
+    cout << "      ##    ##     ######     ##      ## ##            #######  ######    ## ##";
+    locate(X_lRANGE+WELCOME_MSG_XPOS, Y_uRANGE+WELCOME_MSG_YPOS+5);
+    cout << " ##   ##    ##     ##  ##     ##      ##  ##           ### ###  ##  ##    ##  ##";
+    locate(X_lRANGE+WELCOME_MSG_XPOS, Y_uRANGE+WELCOME_MSG_YPOS+6);
+    cout << "  #####    ####    ##  ##    ####    #### ##           ##   ##  ##  ##   #### ##";
+    locate(X_lRANGE+WELCOME_MSG_XPOS+50, Y_uRANGE+WELCOME_MSG_YPOS+9);
     cout <<" developed by Kiki Liu. -2024.11";
-    Sleep(5000);
+    Sleep(3000);
     clean_screen(200,60,0,0);
 }
 
+void game_over_animation(){
+    clean_screen(X_lRANGE+GAMEOVER_MSG_XPOS+90,Y_uRANGE+GAMEOVER_MSG_YPOS+11,X_lRANGE+GAMEOVER_MSG_XPOS-5,Y_uRANGE+GAMEOVER_MSG_YPOS-5);
+    locate(X_lRANGE+GAMEOVER_MSG_XPOS, Y_uRANGE+GAMEOVER_MSG_YPOS);
+    cout << "   ####     ##     ##   ##  #######            #####   ##   ##  #######  ######";
+    locate(X_lRANGE+GAMEOVER_MSG_XPOS, Y_uRANGE+GAMEOVER_MSG_YPOS+1);
+    cout << "  ##  ##   ####    ### ###   ##   #           ##   ##  ##   ##   ##   #   ##  ##";
+    locate(X_lRANGE+GAMEOVER_MSG_XPOS, Y_uRANGE+GAMEOVER_MSG_YPOS+2);
+    cout << " ##       ##  ##   #######   ## #             ##   ##   ## ##    ## #     ##  ##";
+    locate(X_lRANGE+GAMEOVER_MSG_XPOS, Y_uRANGE+GAMEOVER_MSG_YPOS+3);
+    cout << " ##       ##  ##   #######   ####             ##   ##   ## ##    ####     #####";
+    locate(X_lRANGE+GAMEOVER_MSG_XPOS, Y_uRANGE+GAMEOVER_MSG_YPOS+4);
+    cout << " ##  ###  ######   ## # ##   ## #             ##   ##    ###     ## #     ## ##";
+    locate(X_lRANGE+GAMEOVER_MSG_XPOS, Y_uRANGE+GAMEOVER_MSG_YPOS+5);
+    cout << "  ##  ##  ##  ##   ##   ##   ##   #           ##   ##    ###     ##   #   ##  ##";
+    locate(X_lRANGE+GAMEOVER_MSG_XPOS, Y_uRANGE+GAMEOVER_MSG_YPOS+6);
+    cout << "   #####  ##  ##   ##   ##  #######            #####      #     #######  #### ##";
+    Sleep(3000);
+    clean_screen(200,60,0,0);
+}
+
+void menu(){
+    // 將前一場遊戲的全域變數重置
+    score = 0;
+    scroll_count = 0;
+    show_floor = true;
+    kill_enermy = 0;
+    hurt_count = 0;
+    clean_screen(200,60,0,0);
+    locate(X_lRANGE+MENU_MSG_XPOS, Y_uRANGE+MENU_MSG_YPOS);
+    cout << " ######   #######    ##     #####    ##  ##     ####";
+    locate(X_lRANGE+MENU_MSG_XPOS, Y_uRANGE+MENU_MSG_YPOS+1);
+    cout << "  ##  ##   ##   #   ####     ## ##   ##  ##    ##  ##";
+    locate(X_lRANGE+MENU_MSG_XPOS, Y_uRANGE+MENU_MSG_YPOS+2);
+    cout << "  ##  ##   ## #    ##  ##    ##  ##  ##  ##        ##";
+    locate(X_lRANGE+MENU_MSG_XPOS, Y_uRANGE+MENU_MSG_YPOS+3);
+    cout << "  #####    ####    ##  ##    ##  ##   ####        ##";
+    locate(X_lRANGE+MENU_MSG_XPOS, Y_uRANGE+MENU_MSG_YPOS+4);
+    cout << "  ## ##    ## #    ######    ##  ##    ##        ##";
+    locate(X_lRANGE+MENU_MSG_XPOS, Y_uRANGE+MENU_MSG_YPOS+5);
+    cout << "  ##  ##   ##   #  ##  ##    ## ##     ##";
+    locate(X_lRANGE+MENU_MSG_XPOS, Y_uRANGE+MENU_MSG_YPOS+6);
+    cout << " #### ##  #######  ##  ##   #####     ####       ##";
+    locate(X_lRANGE+MENU_MSG_XPOS, Y_uRANGE+MENU_MSG_YPOS+9);
+    cout << "Press Y/y to start new game, press other key to leave the game.";
+    FlushConsoleInputBuffer(GetStdHandle(STD_INPUT_HANDLE)); // getch會吃到buffer的內容，使用前先清掉buffer
+}
+
+void byebye(){
+    clean_screen(200,60,0,0);
+    locate(X_lRANGE+GAMEOVER_MSG_XPOS, Y_uRANGE+GAMEOVER_MSG_YPOS);
+    cout << "   ####    #####    #####   #####           ######   ##  ##   #######";
+    locate(X_lRANGE+GAMEOVER_MSG_XPOS, Y_uRANGE+GAMEOVER_MSG_YPOS+1);
+    cout << "  ##  ##  ##   ##  ##   ##   ## ##           ##  ##  ##  ##    ##   #";
+    locate(X_lRANGE+GAMEOVER_MSG_XPOS, Y_uRANGE+GAMEOVER_MSG_YPOS+2);
+    cout << " ##       ##   ##  ##   ##   ##  ##          ##  ##  ##  ##    ## #";
+    locate(X_lRANGE+GAMEOVER_MSG_XPOS, Y_uRANGE+GAMEOVER_MSG_YPOS+3);
+    cout << " ##       ##   ##  ##   ##   ##  ##          #####    ####     ####";
+    locate(X_lRANGE+GAMEOVER_MSG_XPOS, Y_uRANGE+GAMEOVER_MSG_YPOS+4);
+    cout << " ##  ###  ##   ##  ##   ##   ##  ##          ##  ##    ##      ## #";
+    locate(X_lRANGE+GAMEOVER_MSG_XPOS, Y_uRANGE+GAMEOVER_MSG_YPOS+5);
+    cout << "  ##  ##  ##   ##  ##   ##   ## ##           ##  ##    ##      ##   #";
+    locate(X_lRANGE+GAMEOVER_MSG_XPOS, Y_uRANGE+GAMEOVER_MSG_YPOS+6);
+    cout << "   #####   #####    #####   #####           ######    ####    #######";
+    Sleep(3000);
+}
+
+// Virtual-Key 代碼: https://learn.microsoft.com/zh-tw/windows/win32/inputdev/virtual-key-codes
 void Game_Start() {
+    clean_screen(200,60,0,0);
     character player(X_lRANGE+2,Y_dRANGE);
 
     // 建立物件
@@ -773,10 +896,10 @@ void Game_Start() {
     initialize_stairs_and_enermies(stair_in_field, enermies);
     initialize_potential_bullet(bullet_in_gun);
 
-    locate(X_rRANGE/2, Y_dRANGE/2);
-    cout << "wait a minute...";
-    Sleep(2000);
-    clean_screen(200,60,0,0);
+    // locate(X_rRANGE/2, Y_dRANGE/2);
+    // cout << "wait a minute...";
+    Sleep(1000);
+    
     welcome_animation();
 
     // 以下尚未整理好
@@ -784,7 +907,7 @@ void Game_Start() {
         Initialize();
         print_edge();
         // 如果按了退出鍵或是人物掉下樓 遊戲就結束
-        if (GetAsyncKeyState(VK_ESCAPE) || player.y > Y_dRANGE+5) break;
+        if (GetAsyncKeyState(VK_ESCAPE) || player.y > Y_dRANGE+5 || player.health==0) break;
         
         player.move();
         scroll_screen(enermies,bullet_in_field,stair_in_field,player);
@@ -797,8 +920,10 @@ void Game_Start() {
         standby_stairs_and_enermies(stair_in_pool, stair_in_field, enermies, dead);
         stair_reuse(stair_in_field, stair_in_pool);
         enermy_reuse(enermies, dead);
-        check_info_for_RD(player, stair_in_field, stair_in_pool, bullet_in_gun, bullet_in_field, bullet_pool, enermies, dead);
+        show_info(player, stair_in_field, stair_in_pool, bullet_in_gun, bullet_in_field, bullet_pool, enermies, dead);
+        // check_info_for_RD(player, stair_in_field, stair_in_pool, bullet_in_gun, bullet_in_field, bullet_pool, enermies, dead);
     }
+    game_over_animation();
     // 銷毀所有物件
     memory_return(stair_in_field);
     memory_return(stair_in_pool);
@@ -818,14 +943,14 @@ void Game_Start() {
 
 // to do list:
 // O 改變顏色
-// 一些其他美觀和guide、血條、積分等等的設定
+// O 一些其他美觀和guide、血條、積分等等的設定
 // O 爬上樓要捲動畫面
 // O 捲動上去的話可以獲得子彈數量，上限暫定10
 // O 子彈可以攻擊敵人
 // O 殺掉敵人可以獲得積分
 // O 如何隨機分配敵人在部分stair上
 // O 敵人撞到你，你要扣血
-// 被敵人撞到，你要閃紅表示受傷O，血條也要閃
+// O 被敵人撞到，你要閃紅表示受傷，X血條也要閃
 // O 殲滅敵人要獲得積分(積分可以幹嘛?我們目標是賺積分還是爬樓?)
 // O 殲滅敵人用的子彈
 // 我想使用中文字，可能要改編碼?
