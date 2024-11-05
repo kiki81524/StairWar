@@ -19,27 +19,27 @@ using namespace std;
 #define X_rRANGE 153
 #define Y_uRANGE 5
 #define Y_dRANGE 45
-#define UPDATE_INTERVAL 25
+#define UPDATE_INTERVAL 20
 #define GRAVITY 0.16 // 定義跳躍用的重力加速度大小
-#define VELOCITY 2.1 // 跳躍的初速度
+#define VELOCITY 2.3 // 跳躍的初速度
 #define STAIR_LEN 10
 #define HEALTH 10
 #define HURT_COUNT 30
 #define HARMFUL 30
 #define BULLET_SPEED 1
 #define COOL_TIME 1 // 子彈發射的冷卻期
-#define EDGE_ADJUST 5
+#define EDGE_ADJUST 3
 #define SCROLL_THRESHOLD (Y_dRANGE-((Y_dRANGE-Y_uRANGE)/2))
 #define SCROLL_SPEED 0.5
 #define PROBABILITY 5 //機率會是 (3/PROBABILITY)
-#define STAIR_NUM 35
-#define ENERMY_NUM 25
+#define STAIR_NUM 40
+#define ENERMY_NUM 30
 #define BULLET_NUM 20
 #define BULLET_INITIAL_NUM 10
 #define AWARD_THRESHOLD 20
 #define KILL_BONUS 3
 #define HURT_PUNISH 1
-#define PRIME 19441 //93563 //3539
+#define PRIME 19441 // 32582657 //93563 //3539
 #define WELCOME_MSG_XPOS 30
 #define WELCOME_MSG_YPOS 15
 #define GAMEOVER_MSG_XPOS 28
