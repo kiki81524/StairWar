@@ -1,7 +1,7 @@
 #include <iostream>
 #include <cstdlib>
 #include <Windows.h>
-#include "tool_2.h"
+#include "tools.h"
 
 using namespace std;
 
